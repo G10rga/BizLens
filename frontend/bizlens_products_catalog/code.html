@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+
+<html lang="ka"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base { html, body { margin: 0; padding: 0; } body { overscroll-behavior: none; } main > :first-child { margin-top: 0 !important; } main > :last-child { margin-bottom: 0 !important; } } ::-webkit-scrollbar { display: none; }</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { colors: { "on-secondary-container": "#00714d", "on-background": "#131b2e", "on-primary-container": "#86af99", "tertiary-fixed": "#ffddb8", "surface-container-lowest": "#ffffff", "on-primary-fixed-variant": "#274e3d", "primary-fixed": "#c1ecd4", "on-primary-fixed": "#002114", "primary-container": "#1b4332", "surface": "#faf8ff", "tertiary": "#382100", "on-surface-variant": "#414844", "surface-container-highest": "#dae2fd", "inverse-surface": "#283044", "on-secondary": "#ffffff", "surface-container-high": "#e2e7ff", "error": "#ba1a1a", "primary-fixed-dim": "#a5d0b9", "on-tertiary-fixed": "#2a1700", "inverse-on-surface": "#eef0ff", "error-container": "#ffdad6", "on-secondary-fixed-variant": "#005236", "on-error-container": "#93000a", "background": "#faf8ff", "outline-variant": "#c1c8c2", "surface-container": "#eaedff", "tertiary-fixed-dim": "#ffb95f", "secondary-fixed-dim": "#4edea3", "surface-container-low": "#f2f3ff", "surface-tint": "#3f6653", "on-primary": "#ffffff", "surface-bright": "#faf8ff", "secondary-container": "#6cf8bb", "surface-variant": "#dae2fd", "tertiary-container": "#563400", "surface-dim": "#d2d9f4", "on-error": "#ffffff", "secondary-fixed": "#6ffbbe", "on-surface": "#131b2e", "on-secondary-fixed": "#002113", "on-tertiary": "#ffffff", "inverse-primary": "#a5d0b9", "secondary": "#006c49", "on-tertiary-fixed-variant": "#653e00", "outline": "#717973", "on-tertiary-container": "#e79400", "primary": "#012d1d" }, borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" }, spacing: { "gutter-md": "1.5rem", "space-sm": "0.5rem", "space-xl": "2.5rem", "margin-lg": "3rem", "gutter": "1rem", "space-xs": "0.25rem", "space-lg": "1.5rem", "space-md": "1rem", "margin-md": "2rem", "gutter-lg": "2rem", "margin": "1rem" }, fontFamily: { "headline-lg-mobile": ["Noto Sans"], "body-sm": ["Noto Sans"], "label-sm": ["Noto Sans"], "body-lg": ["Noto Sans"], "label-md": ["Noto Sans"], "headline-sm": ["Noto Sans"], "body-md": ["Noto Sans"], "display-lg": ["Noto Sans"], "headline-lg": ["Noto Sans"], "label-lg": ["Noto Sans"], "headline-md": ["Noto Sans"] }, fontSize: { "headline-lg-mobile": ["26px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "700" }], "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }], "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.03em", "fontWeight": "500" }], "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }], "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "600" }], "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }], "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }], "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }], "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.015em", "fontWeight": "700" }], "label-lg": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }], "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }] } } } };</script></head><body class="bg-surface font-body-md text-body-md text-on-surface antialiased"><header class="fixed top-0 w-full z-50 bg-surface-container-lowest/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(15,41,34,0.05)]"><div class="h-20 w-full px-gutter-lg flex items-center justify-between gap-space-md"><div class="flex items-center gap-space-lg"><div class="flex items-center gap-space-sm"><img alt="BizLens Brand Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WShFAdr9nm-4a9FS81XMgC6df4jtMJF9QaZYOeWRgW_E6OHIM1Igmbf2OEiz9fTOrHyzTw27m4sHK9091rwwPVimsgzeGJIvKTovJnGqLzxdX6iBRA679f311iGLTS35yLzxaW8wloTNcI8GMDGoBIvUG2Yr2eRNnEwT_ui6_guRTHRAJXb-8ogc2_5WZdoI_KDzEDduN6IAwUX4UN-PUkk064tAQJcrZrtqCIegC3T7KaSY551ZMX7bIk"/><span class="font-headline-sm text-headline-sm text-primary tracking-tight">BizLens</span></div><div class="h-6 w-px bg-outline-variant/40 hidden sm:block"></div><button class="flex items-center gap-space-xs bg-surface-container-low px-space-md py-space-xs rounded-lg text-left hover:bg-surface-container transition-colors" type="button"><span class="material-symbols-outlined text-secondary text-[20px]">storefront</span><div class="flex flex-col"><span class="font-label-md text-label-md text-on-surface leading-tight font-semibold">მზიური საცხობი</span><span class="font-label-sm text-label-sm text-on-surface-variant">Mziuri Bakery, თბილისი</span></div><span class="material-symbols-outlined text-on-surface-variant text-[18px]">expand_more</span></button></div><div class="flex items-center gap-space-md"><div class="hidden xl:flex items-center gap-space-xs bg-secondary-fixed/30 px-space-md py-space-xs rounded-full"><span class="material-symbols-outlined text-secondary text-[16px]">auto_graph</span><span class="font-label-sm text-label-sm text-on-secondary-fixed-variant">ML პროგნოზი განახლებულია • 90 დღე</span></div><div class="flex items-center bg-surface-container-low rounded-lg p-0.5"><button class="px-space-sm py-0.5 rounded font-label-sm text-label-sm font-semibold bg-surface-container-lowest text-primary shadow-[0_1px_3px_rgba(15,41,34,0.06)]" type="button">ქარ</button><button class="px-space-sm py-0.5 rounded font-label-sm text-label-sm text-on-surface-variant hover:text-on-surface transition-colors" type="button">EN</button></div><button class="w-9 h-9 rounded-lg bg-surface-container-low flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors relative" type="button"><span class="material-symbols-outlined text-[20px]">notifications</span><span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error"></span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest shadow-[0_1px_8px_rgba(15,41,34,0.04)] z-40 flex flex-col justify-between pt-20 pb-space-lg"><div class="px-space-md pt-space-lg"><div class="px-space-sm pb-space-sm text-label-sm font-label-sm text-on-surface-variant tracking-wider uppercase">მთავარი მენიუ</div><nav class="space-y-1" data-active-classes="bg-primary-container text-on-primary font-semibold"><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="pos-sales" href="#"><span class="font-label-lg text-label-lg">POS / გაყიდვები</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="products" href="#"><span class="font-label-lg text-label-lg">პროდუქტები / Products</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="dashboard" href="#"><span class="font-label-lg text-label-lg">დაფა / Dashboard</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="alerts" href="#"><span class="font-label-lg text-label-lg">გაფრთხილებები / Alerts</span><span class="bg-error-container text-on-error-container font-label-sm text-label-sm px-2 py-0.5 rounded-full font-semibold">2</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="todays-sales" href="#"><span class="font-label-lg text-label-lg">დღის გაყიდვები / Today's Sales</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="pro-csv" href="#"><span class="font-label-lg text-label-lg">CSV იმპორტი / Pro CSV</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="expenses" href="#"><span class="font-label-lg text-label-lg">ხარჯების მართვა / Expenses</span></a><a class="flex items-center justify-between px-space-md py-2.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-all" data-path="settings" href="#"><span class="font-label-lg text-label-lg">პარამეტრები / Settings</span></a></nav></div><div class="px-space-md"><div class="bg-surface-container-low p-space-md rounded-xl shadow-[0_1px_3px_0_rgba(15,41,34,0.03)]"><div class="flex items-center justify-between mb-space-xs"><span class="font-label-md text-label-md font-semibold text-primary">სალარო #1</span><span class="inline-flex items-center px-1.5 py-0.5 rounded-full font-label-sm text-label-sm bg-secondary-container text-on-secondary-container font-medium">ღია</span></div><div class="font-body-sm text-body-sm text-on-surface-variant mb-space-sm">დღის ნავაჭრი: <span class="font-semibold text-on-surface">₾ 1,842.50</span></div><button class="w-full py-1.5 px-space-sm rounded-lg bg-surface-container-lowest text-primary font-label-sm text-label-sm font-semibold hover:bg-primary hover:text-on-primary transition-colors text-center shadow-[0_1px_2px_rgba(15,41,34,0.04)]" type="button">ცვლის დახურვა</button></div></div></aside><div class="pl-64"><main class="relative pt-20 w-full px-gutter-lg pb-margin-lg bg-surface min-h-screen"><div class="flex flex-col w-full space-y-gutter-lg">
+<!-- Top Hero Bar / Catalog Summary -->
+<section class="flex flex-col xl:flex-row xl:items-end justify-between gap-space-lg bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
+<div class="space-y-space-xs max-w-2xl">
+<div class="flex items-center gap-space-sm text-secondary">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+<span class="font-label-md text-label-md tracking-wider uppercase font-semibold">მენიუს მართვის სისტემა</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-primary tracking-tight">პროდუქტების კატალოგი</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">მართეთ მენიუ და ფასები პირდაპირ POS-ისთვის • Manage menu, quick-keys &amp; POS prices in real-time</p>
+</div>
+<div class="flex flex-wrap items-center gap-space-md">
+<div class="flex items-center gap-space-xs bg-surface-container-low px-space-md py-space-sm rounded-lg">
+<span class="material-symbols-outlined text-secondary text-[18px]">sync</span>
+<span class="font-label-sm text-label-sm text-on-surface font-medium">სალარო სინქრონიზებულია (3 წამი)</span>
+</div>
+<button class="inline-flex items-center gap-space-xs bg-primary hover:bg-primary-container text-on-primary px-space-lg py-2.5 rounded-lg font-label-lg text-label-lg font-semibold shadow-md transition-all active:scale-[0.98]" id="openModalBtn" type="button">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+<span>+ ახალი პროდუქტი</span>
+</button>
+</div>
+</section>
+<!-- Metric Badges Row (Caucasian Bakery Focus) -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant tracking-wider">სულ მენიუში</span>
+<div class="font-headline-md text-headline-md text-primary font-bold">14 ერთეული</div>
+</div>
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[26px]">lunch_dining</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant tracking-wider">პოპულარული კატეგორია</span>
+<div class="font-headline-md text-headline-md text-primary font-bold">ცომეული (6)</div>
+</div>
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[26px]">bakery_dining</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant tracking-wider">საშუალო ფასი</span>
+<div class="font-headline-md text-headline-md text-primary font-bold">₾ 4.54</div>
+</div>
+<div class="w-12 h-12 rounded-lg bg-surface-container-low flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[26px]">calculate</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant tracking-wider">POS სტატუსი</span>
+<div class="font-headline-md text-headline-md text-secondary-fixed-variant font-bold flex items-center gap-1">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary"></span> 100% ხელმისაწვდომი
+        </div>
+</div>
+<div class="w-12 h-12 rounded-lg bg-secondary-fixed/40 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[26px]">point_of_sale</span>
+</div>
+</div>
+</section>
+<!-- Filter Pills & Search Panel -->
+<section class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm space-y-space-md">
+<!-- Category Tabs -->
+<div class="flex items-center justify-between flex-wrap gap-space-sm">
+<div class="flex flex-wrap items-center gap-space-xs" id="categoryTabGroup">
+<button class="category-pill active bg-primary text-on-primary px-space-md py-2 rounded-lg font-label-md text-label-md font-semibold transition-all" data-filter="all" type="button">
+          ყველა (14)
+        </button>
+<button class="category-pill bg-surface-container-low text-on-surface hover:bg-surface-container px-space-md py-2 rounded-lg font-label-md text-label-md font-medium transition-all" data-filter="bakery" type="button">
+          პური &amp; ცომეული (6)
+        </button>
+<button class="category-pill bg-surface-container-low text-on-surface hover:bg-surface-container px-space-md py-2 rounded-lg font-label-md text-label-md font-medium transition-all" data-filter="dessert" type="button">
+          დესერტები (3)
+        </button>
+<button class="category-pill bg-surface-container-low text-on-surface hover:bg-surface-container px-space-md py-2 rounded-lg font-label-md text-label-md font-medium transition-all" data-filter="drinks" type="button">
+          ყავა &amp; სასმელები (5)
+        </button>
+</div>
+<!-- Quick View Toggle: Cards vs Table -->
+<div class="flex items-center bg-surface-container-low rounded-lg p-1">
+<button class="p-1.5 rounded bg-surface-container-lowest text-primary shadow-sm flex items-center justify-center" id="viewGridBtn" title="ბარათების ხედი" type="button">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+</button>
+<button class="p-1.5 rounded text-on-surface-variant hover:text-on-surface flex items-center justify-center" id="viewListBtn" title="ცხრილის ხედი" type="button">
+<span class="material-symbols-outlined text-[20px]">view_list</span>
+</button>
+</div>
+</div>
+<!-- Search + Filter Controls -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-space-md pt-space-xs">
+<div class="md:col-span-6 relative">
+<span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+<input class="w-full bg-surface-container-low text-on-surface placeholder:text-outline pl-11 pr-24 py-2.5 rounded-lg font-body-sm text-body-sm focus:outline-none focus:bg-surface-container-lowest transition-all" id="searchInput" placeholder="ძიება სახელით ან კოდით (მაგ. ხაჭაპური, Shotis, 002)..." type="text"/>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
+<kbd class="px-1.5 py-0.5 text-[10px] font-label-sm font-semibold text-on-surface-variant bg-surface-container rounded shadow-sm">⌘ K</kbd>
+<kbd class="px-1.5 py-0.5 text-[10px] font-label-sm font-semibold text-on-surface-variant bg-surface-container rounded shadow-sm">ESC</kbd>
+</div>
+</div>
+<div class="md:col-span-3">
+<div class="relative">
+<select class="w-full bg-surface-container-low text-on-surface py-2.5 px-space-md pr-10 rounded-lg font-body-sm text-body-sm appearance-none focus:outline-none focus:bg-surface-container-lowest transition-all cursor-pointer" id="categorySelectFilter">
+<option value="all">ყველა ქვეკატეგორია</option>
+<option value="bakery">საცხობი / ღუმელი</option>
+<option value="dessert">ტკბილეული &amp; ნამცხვარი</option>
+<option value="drinks">ბარი &amp; ცხელი სასმელი</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span>
+</div>
+</div>
+<div class="md:col-span-3">
+<div class="relative">
+<select class="w-full bg-surface-container-low text-on-surface py-2.5 px-space-md pr-10 rounded-lg font-body-sm text-body-sm appearance-none focus:outline-none focus:bg-surface-container-lowest transition-all cursor-pointer" id="sortSelectFilter">
+<option value="name_asc">დახარისხება: სახელით (ა-ჰ)</option>
+<option value="price_asc">ფასი: ზრდადობით</option>
+<option value="price_desc">ფასი: კლებადობით</option>
+<option value="popular">პოპულარობით POS-ში</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none text-[18px]">sort</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Product Catalog Grid / Stream -->
+<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter-md" id="catalogGrid">
+<!-- Item 1: Shotis Puri -->
+<div class="product-item group bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col justify-between" data-category="bakery" data-name="შოთის პური shotis puri" data-price="1.50">
+<div class="space-y-space-md">
+<div class="relative w-full h-44 rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Traditional Georgian Shotis Puri bread baked in clay tone oven, crisp golden crust, warm rustic bakery ambient morning light in Tbilisi bakery" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHukEftMhEAfvkpTzje5b6xZxPpVGug4XLX0qnTYYvAowUUJiU6OfKNn6ywVI2TXIBOoVdX-ehXDAPurtAzFpAHdrBcnyN5LY0HpuUpJGbnYiEIaExeMtnyhjrWUYWDo45FPHWtS12GGD123MOArKWm5ZHGohfhIuSzsOTxrGzQl8AB3pmgvlBkzE9bfgO9M7oPMu9OhldOeDmRhb-y6o_DQYhaBEVfQboQxpaTMCcGYfQ0KZa3ms2Dg"/>
+<div class="absolute top-2 left-2 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full font-label-sm text-label-sm text-secondary font-semibold">
+            ცომეული
+          </div>
+<div class="absolute top-2 right-2 bg-primary/85 text-on-primary px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold">
+            #001
+          </div>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary tracking-tight">შოთის პური</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Shotis Puri • თონის პური</p>
+</div>
+</div>
+<div class="pt-space-md mt-space-md flex items-center justify-between bg-surface-container-low -mx-space-md -mb-space-md p-space-md rounded-b-xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">გასაყიდი ფასი</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">₾ 1.50</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="p-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-all shadow-sm" onclick="editProduct('შოთის პური', 'Shotis Puri', '1.50', 'bakery')" title="რედაქტირება" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error transition-all shadow-sm" onclick="deletePrompt('შოთის პური')" title="წაშლა" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 2: Imeruli Khachapuri -->
+<div class="product-item group bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col justify-between" data-category="bakery" data-name="იმერული ხაჭაპური imeruli khachapuri" data-price="7.00">
+<div class="space-y-space-md">
+<div class="relative w-full h-44 rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Golden baked round Imeruli Khachapuri stuffed with melted Georgian cheese, freshly sliced on wooden bakery board, soft morning bakery lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlidcNQVUAdcPB3Omfia03S4ADj7F4zWhYMamKOkeG_FghHZNuXO6kOMjbPzxDjond-0y2NA-_jQZVelDCpCxceGZs4YYhW-n50LWt8UW8VSJeOV2lPy0M8gfTBQaEydlEm-3gPdrJHzaBPQcjvOmZ7FefeCNjeAWqoYOV-uCoVL8VhMN6-FOTIlSauewDWu5kdMYfjb2DE5l2YSZJo3AxtSMCEGIHhzCWJvMtQPi_Ty-H3XWqZMEmlA"/>
+<div class="absolute top-2 left-2 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full font-label-sm text-label-sm text-secondary font-semibold">
+            ცომეული
+          </div>
+<div class="absolute top-2 right-2 bg-primary/85 text-on-primary px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold">
+            #002
+          </div>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary tracking-tight">იმერული ხაჭაპური</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Imeruli Khachapuri • იმერული ყველი</p>
+</div>
+</div>
+<div class="pt-space-md mt-space-md flex items-center justify-between bg-surface-container-low -mx-space-md -mb-space-md p-space-md rounded-b-xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">გასაყიდი ფასი</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">₾ 7.00</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="p-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-all shadow-sm" onclick="editProduct('იმერული ხაჭაპური', 'Imeruli Khachapuri', '7.00', 'bakery')" title="რედაქტირება" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error transition-all shadow-sm" onclick="deletePrompt('იმერული ხაჭაპური')" title="წაშლა" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 3: Adjaruli Khachapuri -->
+<div class="product-item group bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col justify-between" data-category="bakery" data-name="აჭარული ხაჭაპური adjaruli khachapuri" data-price="9.50">
+<div class="space-y-space-md">
+<div class="relative w-full h-44 rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Traditional boat-shaped Adjaruli Khachapuri with bubbling sulguni cheese, raw egg yolk, and pat of fresh butter in the center, professional culinary photograph" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCx5_clrd-hQUVxMPMApVwD71nhS6D2wjdmjl-4UNEzLwLN3FJL0AAob1T88iNZIVAXrIlvKummxS5eu-xN_OTJrzdGqbb19_suWqo5-IrgeMlFWJs2q_bs_VPdeN3-h5tF2JT3KigfQBQZ5vjxPnz7N2ZgdJqDCPxl4IzoUnvMoZw1sX6vzbCA8w2VdfPWhk3mrAzvqLMwQO1qqmgjsbpl1SerBJmY5z2ixIVMQ-dt8DGb4xLp-0TtPA"/>
+<div class="absolute top-2 left-2 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full font-label-sm text-label-sm text-secondary font-semibold">
+            ცომეული
+          </div>
+<div class="absolute top-2 right-2 bg-primary/85 text-on-primary px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold">
+            #003
+          </div>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary tracking-tight">აჭარული ხაჭაპური</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Adjaruli Khachapuri • კვერცხით &amp; კარაქით</p>
+</div>
+</div>
+<div class="pt-space-md mt-space-md flex items-center justify-between bg-surface-container-low -mx-space-md -mb-space-md p-space-md rounded-b-xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">გასაყიდი ფასი</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">₾ 9.50</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="p-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-all shadow-sm" onclick="editProduct('აჭარული ხაჭაპური', 'Adjaruli Khachapuri', '9.50', 'bakery')" title="რედაქტირება" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error transition-all shadow-sm" onclick="deletePrompt('აჭარული ხაჭაპური')" title="წაშლა" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 4: Lobiani -->
+<div class="product-item group bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col justify-between" data-category="bakery" data-name="ლობიანი lobiani" data-price="4.50">
+<div class="space-y-space-md">
+<div class="relative w-full h-44 rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Freshly baked Georgian Lobiani flatbread seasoned with mountain herbs and kidney beans, lightly brushed with butter, appetizing macro food photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYlacMjscABQ7ggSANkSS9Gqfe630wdlylzL0P78mqCODpuOMDtEj7E53RjLVtjEaktE7dX3an1iUojimpHzHU7Wj_CYOFL777QSlwRElzJ747PC7DHM0IZ8Lbo8Mdc2vnw5z5Q0L1bIWJa9KVW2RZ60PnG7E1wbrujTvaOoAzlvvdFy7OGp2yTt3-y2vNcq1gYM0r-5j-aQUWIsSiqJFBUqwrElCF3LUJKknoCqLSJRCCwNo8LYUp_g"/>
+<div class="absolute top-2 left-2 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full font-label-sm text-label-sm text-secondary font-semibold">
+            ცომეული
+          </div>
+<div class="absolute top-2 right-2 bg-primary/85 text-on-primary px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold">
+            #004
+          </div>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary tracking-tight">რაჭული ლობიანი</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Lobiani • ლობიო &amp; სანელებლები</p>
+</div>
+</div>
+<div class="pt-space-md mt-space-md flex items-center justify-between bg-surface-container-low -mx-space-md -mb-space-md p-space-md rounded-b-xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">გასაყიდი ფასი</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">₾ 4.50</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="p-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-all shadow-sm" onclick="editProduct('რაჭული ლობიანი', 'Lobiani', '4.50', 'bakery')" title="რედაქტირება" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error transition-all shadow-sm" onclick="deletePrompt('რაჭული ლობიანი')" title="წაშლა" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 5: Vanilla Puff -->
+<div class="product-item group bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col justify-between" data-category="dessert" data-name="ვანილის შუ vanilla puff dessert" data-price="3.20">
+<div class="space-y-space-md">
+<div class="relative w-full h-44 rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="French-Georgian style choux pastry puff dusted with powdered sugar and filled with rich vanilla cream, artisanal bakery display with gentle morning sunlight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuByr6fQGbFv3STr-dVEqxZstVKNWs2UW3VvZkBUGD47i3BR84B7-i_uJBlbQv3xpl1NSkTR134g41dv2gzfiF7S3Qiq58OaZ1cKG4o92yXgwwULV2WNlqYuML1CSXobkbYlNNV5a50JXRneo4sALi_COtOsvHYkHVeTyGn2J0jlKf6WfAswL8gReHxJCYVd9u6Z4LsiZ-rhQF6V0TCmPS3-QlVdV9eSNMj8pjfHMQhyQIlEOL8KP0ilKg"/>
+<div class="absolute top-2 left-2 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full font-label-sm text-label-sm text-on-tertiary-container font-semibold">
+            დესერტი
+          </div>
+<div class="absolute top-2 right-2 bg-primary/85 text-on-primary px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold">
+            #005
+          </div>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary tracking-tight">ვანილის შუ</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Vanilla Puff • ნატურალური კრემით</p>
+</div>
+</div>
+<div class="pt-space-md mt-space-md flex items-center justify-between bg-surface-container-low -mx-space-md -mb-space-md p-space-md rounded-b-xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">გასაყიდი ფასი</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">₾ 3.20</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="p-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-all shadow-sm" onclick="editProduct('ვანილის შუ', 'Vanilla Puff', '3.20', 'dessert')" title="რედაქტირება" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error transition-all shadow-sm" onclick="deletePrompt('ვანილის შუ')" title="წაშლა" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 6: Americano -->
+<div class="product-item group bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col justify-between" data-category="drinks" data-name="ამერიკანო americano coffee" data-price="3.50">
+<div class="space-y-space-md">
+<div class="relative w-full h-44 rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Hot Americano black coffee in minimalist ceramic cup with soft steam rising, rustic pine wood table in contemporary cafe in Tbilisi" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbGd0OUJhFIs6rgRC7QF7A4oqWLi0wqLTwXD721lWDONWL2asfyadBrkLnycw76dLziBe8sY36ozL7AwjMWsC3tF2wmCAPYd1Y3xKmxIERZeeDs3DMhi3sFyfCyLN4UJJdVaNB-wXtWuz179PDZd-4Bc33-vdACxm0wg9qSxjF6IO0KtsEA1nk3XZUmyM2jEANN5v61AgcjD7xcr_sALrrVs_Quy4nFynKzLBipshFkhRTs570bnRRgg"/>
+<div class="absolute top-2 left-2 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full font-label-sm text-label-sm text-secondary font-semibold">
+            სასმელი
+          </div>
+<div class="absolute top-2 right-2 bg-primary/85 text-on-primary px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold">
+            #006
+          </div>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary tracking-tight">ამერიკანო</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Americano • 100% Arabica Specialty</p>
+</div>
+</div>
+<div class="pt-space-md mt-space-md flex items-center justify-between bg-surface-container-low -mx-space-md -mb-space-md p-space-md rounded-b-xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">გასაყიდი ფასი</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">₾ 3.50</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="p-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-all shadow-sm" onclick="editProduct('ამერიკანო', 'Americano', '3.50', 'drinks')" title="რედაქტირება" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error transition-all shadow-sm" onclick="deletePrompt('ამერიკანო')" title="წაშლა" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 7: Cappuccino -->
+<div class="product-item group bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col justify-between" data-category="drinks" data-name="კაპუჩინო cappuccino coffee" data-price="4.50">
+<div class="space-y-space-md">
+<div class="relative w-full h-44 rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Artisanal cappuccino with velvety steamed milk latte art leaf design in deep forest green ceramic cup, cozy bakery aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkGMv3ssjRLiqocF2_F-EMuOZfpxNMAnTyiUPtmgJsdBzRSxUwcF8nPVJpI3gfEG16Jp8b8iyciapVnF89bWB6oG7A3bbXGhPUADRaadGUDM_92srggsMcmHRKReS0Xd-SCNLAqwr54CCU1FyzDpOVm5zBdjGKrQqcTUhL57RHpXfdY2xa-8lJu9Kx_QhSZlfp3QMJmYLx5NtWhJV5NFzz72LAS6naKjzxRxBvJct7zxcvBGlwLGsCJw"/>
+<div class="absolute top-2 left-2 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full font-label-sm text-label-sm text-secondary font-semibold">
+            სასმელი
+          </div>
+<div class="absolute top-2 right-2 bg-primary/85 text-on-primary px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold">
+            #007
+          </div>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary tracking-tight">კაპუჩინო</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Cappuccino • ორთქლზე ათქვეფილი რძე</p>
+</div>
+</div>
+<div class="pt-space-md mt-space-md flex items-center justify-between bg-surface-container-low -mx-space-md -mb-space-md p-space-md rounded-b-xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">გასაყიდი ფასი</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">₾ 4.50</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="p-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-all shadow-sm" onclick="editProduct('კაპუჩინო', 'Cappuccino', '4.50', 'drinks')" title="რედაქტირება" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error transition-all shadow-sm" onclick="deletePrompt('კაპუჩინო')" title="წაშლა" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 8: Georgian Lemonade -->
+<div class="product-item group bg-surface-container-lowest rounded-xl p-space-md shadow-sm hover:shadow-md transition-all flex flex-col justify-between" data-category="drinks" data-name="ქართული ლიმონათი tarragon pear georgian lemonade" data-price="2.50">
+<div class="space-y-space-md">
+<div class="relative w-full h-44 rounded-lg overflow-hidden bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Traditional Georgian emerald green tarragon and golden pear craft lemonade in retro glass bottles with condensation, bright freshness, clean cafe lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-TUQJc_sX5V3etVSjrO1q5Ek1wA4ry8vuaPLUBs-6PKfb--q4Ek_-oi35oail_RZdRyqUZK-w0A5uoP-XPVyVR8j79T7gSKNnyQffsmVcYcJnRgsM3qUCIvptIz-Gn31wabcbF3T3MyX25HPJv-K-eLU0mFz0x2ksThRAppWhMS3-ManocLdZaCWC5YONqiWpOOKhU250JpWbWQp_AqaePsQBX_MzOhlLAH7vyBZ-268lg-Uw8wAeZA"/>
+<div class="absolute top-2 left-2 bg-surface-container-lowest/90 backdrop-blur-md px-2.5 py-0.5 rounded-full font-label-sm text-label-sm text-secondary font-semibold">
+            სასმელი
+          </div>
+<div class="absolute top-2 right-2 bg-primary/85 text-on-primary px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold">
+            #008
+          </div>
+</div>
+<div>
+<h3 class="font-headline-sm text-headline-sm text-primary tracking-tight">ქართული ლიმონათი</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Georgian Lemonade • ტარხუნა / მსხალი</p>
+</div>
+</div>
+<div class="pt-space-md mt-space-md flex items-center justify-between bg-surface-container-low -mx-space-md -mb-space-md p-space-md rounded-b-xl">
+<div class="flex flex-col">
+<span class="font-label-sm text-label-sm text-on-surface-variant">გასაყიდი ფასი</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">₾ 2.50</span>
+</div>
+<div class="flex items-center gap-space-xs">
+<button class="p-2 rounded-lg bg-surface-container-lowest text-primary hover:bg-primary hover:text-on-primary transition-all shadow-sm" onclick="editProduct('ქართული ლიმონათი', 'Georgian Lemonade', '2.50', 'drinks')" title="რედაქტირება" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+<button class="p-2 rounded-lg bg-surface-container-lowest text-error hover:bg-error hover:text-on-error transition-all shadow-sm" onclick="deletePrompt('ქართული ლიმონათი')" title="წაშლა" type="button">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- POS Quick-Sync Visual Banner -->
+<section class="bg-surface-container-low rounded-xl p-space-lg flex flex-col md:flex-row items-center justify-between gap-space-md shadow-sm">
+<div class="flex items-center gap-space-md">
+<div class="w-12 h-12 rounded-xl bg-secondary-fixed/40 flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined text-[26px]">flash_on</span>
+</div>
+<div>
+<h4 class="font-headline-sm text-headline-sm text-primary font-bold">მყისიერი განახლება POS ტერმინალზე</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">ფასის ან სახელის შეცვლა დაუყოვნებლივ აისახება მოლარის ეკრანზე გადატვირთვის გარეშე.</p>
+</div>
+</div>
+<div class="flex items-center gap-space-sm w-full md:w-auto">
+<button class="w-full md:w-auto px-space-md py-2 bg-surface-container-lowest hover:bg-surface-container text-primary font-label-md text-label-md font-semibold rounded-lg shadow-sm transition-all text-center" type="button">
+        სალაროს ლოგები
+      </button>
+<button class="w-full md:w-auto px-space-md py-2 bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold rounded-lg shadow-sm transition-all text-center" type="button">
+        მენიუს ექსპორტი
+      </button>
+</div>
+</section>
+<!-- Slide-Over / Modal: Add/Edit Product -->
+<div class="fixed inset-0 z-50 hidden" id="productModal">
+<!-- Backdrop -->
+<div class="absolute inset-0 bg-inverse-surface/40 backdrop-blur-sm transition-opacity" id="modalBackdrop"></div>
+<!-- Drawer / Slide Panel -->
+<div class="absolute right-0 top-0 h-full w-full max-w-lg bg-surface-container-lowest shadow-2xl flex flex-col justify-between overflow-y-auto z-10 transition-transform duration-300">
+<!-- Modal Header -->
+<div class="p-space-lg bg-surface-container-low flex items-center justify-between">
+<div>
+<span class="font-label-sm text-label-sm uppercase tracking-wider text-secondary font-semibold">BizLens • POS კატალოგი</span>
+<h2 class="font-headline-md text-headline-md text-primary font-bold" id="modalTitle">ახალი პროდუქტის დამატება</h2>
+</div>
+<button class="w-9 h-9 rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-on-surface flex items-center justify-center shadow-sm" id="closeModalBtn" type="button">
+<span class="material-symbols-outlined text-[22px]">close</span>
+</button>
+</div>
+<!-- Modal Body -->
+<form class="p-space-lg space-y-space-md flex-1" id="productForm">
+<!-- v1 Notice Banner -->
+<div class="bg-surface-container-low p-space-md rounded-xl flex items-start gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[22px] shrink-0 mt-0.5">verified</span>
+<div>
+<div class="font-label-md text-label-md text-primary font-bold">მარტივი გაყიდვების სინქრონიზაცია (v1)</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+              No inventory or stock tracking needed for v1 — simple sales sync directly into the cash register stream.
+            </p>
+</div>
+</div>
+<!-- Product Georgian Name -->
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between">
+<span>პროდუქტის დასახელება (ქართულად) *</span>
+<span class="text-on-surface-variant font-normal">მენიუს ჩვენება</span>
+</label>
+<input class="w-full bg-surface-container-low text-on-surface placeholder:text-outline px-space-md py-3 rounded-lg font-body-md text-body-md focus:outline-none focus:bg-surface-container-lowest transition-all" id="inputNameKa" placeholder="მაგ. იმერული ხაჭაპური (დიდი)" required="" type="text"/>
+</div>
+<!-- Product English Name Subtitle -->
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold flex items-center justify-between">
+<span>ინგლისური დასახელება / Subtitle</span>
+<span class="text-on-surface-variant font-normal">არასავალდებულო</span>
+</label>
+<input class="w-full bg-surface-container-low text-on-surface placeholder:text-outline px-space-md py-3 rounded-lg font-body-md text-body-md focus:outline-none focus:bg-surface-container-lowest transition-all" id="inputNameEn" placeholder="e.g. Traditional Georgian Cheese Bread" type="text"/>
+</div>
+<!-- Category Select -->
+<div class="space-y-1">
+<label class="font-label-md text-label-md text-on-surface font-semibold">კატეგორია *</label>
+<div class="relative">
+<select class="w-full bg-surface-container-low text-on-surface py-3 px-space-md pr-10 rounded-lg font-body-md text-body-md appearance-none focus:outline-none focus:bg-surface-container-lowest transition-all cursor-pointer" id="inputCategory">
+<option value="bakery">პური &amp; ცომეული (Bakery / Hot Oven)</option>
+<option value="dessert">დესერტები &amp; საკონდიტრო (Desserts)</option>
+<option value="drinks">ყავა &amp; სასმელები (Coffee &amp; Drinks)</option>
+<option value="other">სხვა სასიცოცხლო მენიუ</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Big Price Input -->
+<div class="space-y-1 pt-space-xs">
+<label class="font-label-md text-label-md text-on-surface font-semibold">გასაყიდი ფასი POS-ზე *</label>
+<div class="relative flex items-center">
+<div class="absolute left-0 top-0 bottom-0 w-14 bg-surface-container-high rounded-l-lg flex items-center justify-center font-headline-sm text-headline-sm text-primary font-bold">
+              ₾
+            </div>
+<input class="w-full pl-16 pr-space-md py-3.5 bg-surface-container-low text-primary font-display-lg text-display-lg font-bold rounded-lg focus:outline-none focus:bg-surface-container-lowest transition-all tracking-tight" id="inputPrice" min="0" placeholder="0.00" required="" step="0.10" type="number"/>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant">შეიყვანეთ საბოლოო ფასი გადასახადის ჩათვლით.</p>
+</div>
+<!-- Quick Tags -->
+<div class="pt-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant block mb-2">სწრაფი ღილაკი სალაროზე (POS Favorites)</span>
+<div class="flex items-center gap-space-sm">
+<label class="flex items-center gap-2 cursor-pointer bg-surface-container-low px-space-md py-2 rounded-lg hover:bg-surface-container transition-all">
+<input checked="" class="w-4 h-4 accent-secondary rounded" type="checkbox"/>
+<span class="font-label-md text-label-md text-on-surface font-medium">სწრაფ ზოლში ჩვენება</span>
+</label>
+<label class="flex items-center gap-2 cursor-pointer bg-surface-container-low px-space-md py-2 rounded-lg hover:bg-surface-container transition-all">
+<input checked="" class="w-4 h-4 accent-secondary rounded" type="checkbox"/>
+<span class="font-label-md text-label-md text-on-surface font-medium">ხელმისაწვდომია დღეს</span>
+</label>
+</div>
+</div>
+</form>
+<!-- Modal Footer -->
+<div class="p-space-lg bg-surface-container-low flex items-center justify-end gap-space-md">
+<button class="px-space-lg py-2.5 rounded-lg bg-surface-container-lowest text-on-surface-variant hover:text-on-surface font-label-md text-label-md font-semibold transition-all shadow-sm" id="cancelModalBtn" type="button">
+          გაუქმება
+        </button>
+<button class="px-space-lg py-2.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-label-md text-label-md font-semibold transition-all shadow-md active:scale-[0.98]" id="saveProductBtn" type="button">
+          შენახვა &amp; სინქრონიზაცია
+        </button>
+</div>
+</div>
+</div>
+<!-- Delete Confirmation Toast / Banner Mock -->
+<div class="fixed bottom-6 right-6 z-50 hidden bg-inverse-surface text-inverse-on-surface p-space-md rounded-xl shadow-xl flex items-center gap-space-md animate-bounce" id="deleteToast">
+<span class="material-symbols-outlined text-error text-[24px]">check_circle</span>
+<div>
+<div class="font-label-md text-label-md font-bold text-white">პროდუქტი წაშლილია</div>
+<div class="font-label-sm text-label-sm text-inverse-on-surface/80" id="deleteToastMessage">პროდუქტი ამოიშალა სალაროს სიიდან</div>
+</div>
+<button class="p-1 hover:bg-white/10 rounded" onclick="document.getElementById('deleteToast').classList.add('hidden')" type="button">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+<script>
+  // DOM Elements
+  const modal = document.getElementById('productModal');
+  const openModalBtn = document.getElementById('openModalBtn');
+  const closeModalBtn = document.getElementById('closeModalBtn');
+  const cancelModalBtn = document.getElementById('cancelModalBtn');
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const saveProductBtn = document.getElementById('saveProductBtn');
+  const modalTitle = document.getElementById('modalTitle');
+  const inputNameKa = document.getElementById('inputNameKa');
+  const inputNameEn = document.getElementById('inputNameEn');
+  const inputPrice = document.getElementById('inputPrice');
+  const inputCategory = document.getElementById('inputCategory');
+  const searchInput = document.getElementById('searchInput');
+  const categoryPills = document.querySelectorAll('.category-pill');
+  const categorySelectFilter = document.getElementById('categorySelectFilter');
+  const sortSelectFilter = document.getElementById('sortSelectFilter');
+  const catalogGrid = document.getElementById('catalogGrid');
+  const productItems = document.querySelectorAll('.product-item');
+
+  // Modal open/close logic
+  function showModal(isEdit = false) {
+    if (!isEdit) {
+      modalTitle.textContent = 'ახალი პროდუქტის დამატება';
+      inputNameKa.value = '';
+      inputNameEn.value = '';
+      inputPrice.value = '';
+      inputCategory.value = 'bakery';
+    }
+    modal.classList.remove('hidden');
+  }
+
+  function hideModal() {
+    modal.classList.add('hidden');
+  }
+
+  openModalBtn.addEventListener('click', () => showModal(false));
+  closeModalBtn.addEventListener('click', hideModal);
+  cancelModalBtn.addEventListener('click', hideModal);
+  modalBackdrop.addEventListener('click', hideModal);
+
+  // Edit product function invoked by button
+  window.editProduct = function(nameKa, nameEn, price, category) {
+    modalTitle.textContent = 'პროდუქტის რედაქტირება';
+    inputNameKa.value = nameKa;
+    inputNameEn.value = nameEn;
+    inputPrice.value = price;
+    inputCategory.value = category;
+    showModal(true);
+  };
+
+  // Delete product notification
+  window.deletePrompt = function(name) {
+    const toast = document.getElementById('deleteToast');
+    const msg = document.getElementById('deleteToastMessage');
+    msg.textContent = `${name} ამოიშალა სალაროს სიიდან`;
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+      toast.classList.add('hidden');
+    }, 3500);
+  };
+
+  // Keyboard shortcut listener (CMD+K / ESC)
+  window.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      searchInput.focus();
+    }
+    if (e.key === 'Escape') {
+      hideModal();
+      searchInput.blur();
+    }
+  });
+
+  // Save product handler
+  saveProductBtn.addEventListener('click', () => {
+    if (!inputNameKa.value || !inputPrice.value) {
+      alert('გთხოვთ შეავსოთ პროდუქტის დასახელება და ფასი!');
+      return;
+    }
+    hideModal();
+    // Feedback toast
+    const toast = document.getElementById('deleteToast');
+    const msg = document.getElementById('deleteToastMessage');
+    toast.querySelector('span').textContent = 'sync_saved_locally';
+    toast.querySelector('.font-bold').textContent = 'ცვლილება შენახულია';
+    msg.textContent = `${inputNameKa.value} წარმატებით სინქრონიზდა სალაროსთან!`;
+    toast.classList.remove('hidden');
+    setTimeout(() => toast.classList.add('hidden'), 3500);
+  });
+
+  // Filter & Search Logic
+  function applyFilters() {
+    const query = searchInput.value.toLowerCase().trim();
+    const activeTab = document.querySelector('.category-pill.active')?.getAttribute('data-filter') || 'all';
+    const selectCat = categorySelectFilter.value;
+
+    productItems.forEach(item => {
+      const name = item.getAttribute('data-name').toLowerCase();
+      const cat = item.getAttribute('data-category');
+      
+      const matchesSearch = !query || name.includes(query);
+      const matchesTab = activeTab === 'all' || cat === activeTab;
+      const matchesSelect = selectCat === 'all' || cat === selectCat;
+
+      if (matchesSearch && matchesTab && matchesSelect) {
+        item.style.display = 'flex';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
+
+  // Category Tab pill clicks
+  categoryPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      categoryPills.forEach(p => {
+        p.classList.remove('active', 'bg-primary', 'text-on-primary');
+        p.classList.add('bg-surface-container-low', 'text-on-surface');
+      });
+      pill.classList.add('active', 'bg-primary', 'text-on-primary');
+      pill.classList.remove('bg-surface-container-low', 'text-on-surface');
+      applyFilters();
+    });
+  });
+
+  searchInput.addEventListener('input', applyFilters);
+  categorySelectFilter.addEventListener('change', applyFilters);
+
+  // Sorting
+  sortSelectFilter.addEventListener('change', () => {
+    const val = sortSelectFilter.value;
+    const itemsArr = Array.from(productItems);
+
+    itemsArr.sort((a, b) => {
+      const priceA = parseFloat(a.getAttribute('data-price'));
+      const priceB = parseFloat(b.getAttribute('data-price'));
+      const nameA = a.querySelector('h3').textContent;
+      const nameB = b.querySelector('h3').textContent;
+
+      if (val === 'price_asc') return priceA - priceB;
+      if (val === 'price_desc') return priceB - priceA;
+      if (val === 'name_asc') return nameA.localeCompare(nameB);
+      return 0;
+    });
+
+    itemsArr.forEach(item => catalogGrid.appendChild(item));
+  });
+
+  // Toggle view (Grid vs list layout demo)
+  const viewGridBtn = document.getElementById('viewGridBtn');
+  const viewListBtn = document.getElementById('viewListBtn');
+
+  viewListBtn.addEventListener('click', () => {
+    catalogGrid.className = 'grid grid-cols-1 gap-space-sm';
+    viewListBtn.classList.add('bg-surface-container-lowest', 'text-primary', 'shadow-sm');
+    viewListBtn.classList.remove('text-on-surface-variant');
+    viewGridBtn.classList.remove('bg-surface-container-lowest', 'text-primary', 'shadow-sm');
+    viewGridBtn.classList.add('text-on-surface-variant');
+  });
+
+  viewGridBtn.addEventListener('click', () => {
+    catalogGrid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter-md';
+    viewGridBtn.classList.add('bg-surface-container-lowest', 'text-primary', 'shadow-sm');
+    viewGridBtn.classList.remove('text-on-surface-variant');
+    viewListBtn.classList.remove('bg-surface-container-lowest', 'text-primary', 'shadow-sm');
+    viewListBtn.classList.add('text-on-surface-variant');
+  });
+</script></main></div></body></html>

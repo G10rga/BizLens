@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BizLens — UI Screens</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --ink: #0f172a;
+      --pine: #1b4332;
+      --mint: #10b981;
+      --card: #ffffff;
+      --line: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Noto Sans", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    header {
+      background: var(--pine);
+      color: white;
+      padding: 1.5rem 2rem;
+    }
+    header h1 { margin: 0 0 .35rem; font-size: 1.6rem; }
+    header p { margin: 0; opacity: .85; }
+    main { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    .api {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .api code { background: #f1f5f9; padding: .1rem .35rem; border-radius: 4px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    a.card {
+      display: block;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem;
+      text-decoration: none;
+      color: inherit;
+      box-shadow: 0 2px 8px -2px rgba(15,41,34,.05);
+      transition: transform .15s ease, border-color .15s ease;
+    }
+    a.card:hover { transform: translateY(-2px); border-color: var(--mint); }
+    a.card strong { display: block; color: var(--pine); margin-bottom: .25rem; }
+    a.card span { font-size: .9rem; color: #64748b; }
+    .demo { color: var(--mint); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BizLens</h1>
+    <p>Georgian cash-flow forecasting + POS — Stitch UI screens + Flask API</p>
+  </header>
+  <main>
+    <div class="api">
+      <p><strong>API:</strong> <code>/api/health</code> · Demo login <span class="demo">demo@bizlens.ge / demo1234</span></p>
+      <p>Backend docs live in the project README. These links open the exported Stitch HTML mocks.</p>
+    </div>
+    <div class="grid">
+      <a class="card" href="/ui/bizlens_login/code.html"><strong>Login</strong><span>Auth</span></a>
+      <a class="card" href="/ui/bizlens_register/code.html"><strong>Register</strong><span>Auth</span></a>
+      <a class="card" href="/ui/bizlens_onboarding_step_1_business_profile/code.html"><strong>Onboarding 1</strong><span>Business profile</span></a>
+      <a class="card" href="/ui/bizlens_onboarding_step_2_fixed_expenses/code.html"><strong>Onboarding 2</strong><span>Fixed expenses</span></a>
+      <a class="card" href="/ui/bizlens_onboarding_step_3_suppliers/code.html"><strong>Onboarding 3</strong><span>Suppliers</span></a>
+      <a class="card" href="/ui/bizlens_onboarding_step_4_cash_on_hand_finish_setup/code.html"><strong>Onboarding 4</strong><span>Cash on hand</span></a>
+      <a class="card" href="/ui/bizlens_pos_sales_till/code.html"><strong>POS Sales</strong><span>Till</span></a>
+      <a class="card" href="/ui/bizlens_pos_sale_success_modal/code.html"><strong>Sale success</strong><span>Modal</span></a>
+      <a class="card" href="/ui/bizlens_products_catalog/code.html"><strong>Products</strong><span>Catalog</span></a>
+      <a class="card" href="/ui/bizlens_today_s_sales_register/code.html"><strong>Today’s sales</strong><span>Register</span></a>
+      <a class="card" href="/ui/bizlens_cash_flow_forecasting_dashboard/code.html"><strong>Dashboard</strong><span>90-day forecast</span></a>
+      <a class="card" href="/ui/bizlens_actionable_alerts/code.html"><strong>Alerts</strong><span>Actionable warnings</span></a>
+      <a class="card" href="/ui/bizlens_csv_upload_pro/code.html"><strong>CSV Upload</strong><span>BizLens Pro</span></a>
+      <a class="card" href="/ui/bizlens_settings/code.html"><strong>Settings</strong><span>Account</span></a>
+      <a class="card" href="/ui/bizlens_expenses_management/code.html"><strong>Edit expenses</strong><span>Cash & costs</span></a>
+    </div>
+  </main>
+</body>
+</html>

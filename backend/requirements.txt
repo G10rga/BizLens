@@ -1,0 +1,16 @@
+Flask>=3.0,<4
+Flask-Cors>=4.0
+Flask-JWT-Extended>=4.6
+Flask-SQLAlchemy>=3.1
+SQLAlchemy>=2.0
+python-dotenv>=1.0
+Werkzeug>=3.0
+pandas>=2.2
+numpy>=2.0
+python-dateutil>=2.9
+holidays>=0.60
+gunicorn>=23.0
+openpyxl>=3.1
+# Optional (preferred for Demo Day accuracy). Install separately if your Python supports it:
+# prophet>=1.1.5
+# psycopg2-binary>=2.9
