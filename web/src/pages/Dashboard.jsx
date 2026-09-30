@@ -157,24 +157,47 @@ export default function Dashboard() {
           )}
 
           <h3 style={{ color: 'var(--pine)', margin: '0 0 0.5rem' }}>
-            მომავალი გაყიდვების პროგნოზი (ჯამი)
+            მომავალი გაყიდვების პროგნოზი (დიაპაზონი)
           </h3>
+          <p className="muted" style={{ marginTop: 0 }}>
+            სავარაუდო მნიშვნელობა და დაბალი–მაღალი დიაპაზონი (არა ზუსტი გარანტია).
+          </p>
           <div className="grid grid-4" style={{ marginBottom: '1.25rem' }}>
             <div className="card">
               <div className="label">საშ. დღიური</div>
               <div className="metric small">{money(data.summary.avg_daily_sales)}</div>
+              <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.9rem' }}>
+                {money(data.summary.avg_daily_sales_low ?? data.summary.avg_daily_sales)}
+                {' – '}
+                {money(data.summary.avg_daily_sales_high ?? data.summary.avg_daily_sales)}
+              </div>
             </div>
             <div className="card">
               <div className="label">გაყიდვები 30 დღე</div>
               <div className="metric small">{money(data.summary.sales_30)}</div>
+              <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.9rem' }}>
+                {money(data.summary.sales_30_low ?? data.summary.sales_30)}
+                {' – '}
+                {money(data.summary.sales_30_high ?? data.summary.sales_30)}
+              </div>
             </div>
             <div className="card">
               <div className="label">გაყიდვები 60 დღე</div>
               <div className="metric small">{money(data.summary.sales_60)}</div>
+              <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.9rem' }}>
+                {money(data.summary.sales_60_low ?? data.summary.sales_60)}
+                {' – '}
+                {money(data.summary.sales_60_high ?? data.summary.sales_60)}
+              </div>
             </div>
             <div className="card">
               <div className="label">გაყიდვები 90 დღე</div>
               <div className="metric small">{money(data.summary.sales_90)}</div>
+              <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.9rem' }}>
+                {money(data.summary.sales_90_low ?? data.summary.sales_90)}
+                {' – '}
+                {money(data.summary.sales_90_high ?? data.summary.sales_90)}
+              </div>
             </div>
           </div>
 
@@ -192,10 +215,24 @@ export default function Dashboard() {
             <div className="card">
               <div className="label">ნაშთი +30</div>
               <div className="metric small">{money(data.summary.cash_30)}</div>
+              {(data.summary.cash_30_low != null || data.summary.cash_30_high != null) && (
+                <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.9rem' }}>
+                  {money(data.summary.cash_30_low)}
+                  {' – '}
+                  {money(data.summary.cash_30_high)}
+                </div>
+              )}
             </div>
             <div className="card">
               <div className="label">ნაშთი +60</div>
               <div className="metric small">{money(data.summary.cash_60)}</div>
+              {(data.summary.cash_60_low != null || data.summary.cash_60_high != null) && (
+                <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.9rem' }}>
+                  {money(data.summary.cash_60_low)}
+                  {' – '}
+                  {money(data.summary.cash_60_high)}
+                </div>
+              )}
             </div>
             <div className="card">
               <div className="label">საფრთხემდე</div>

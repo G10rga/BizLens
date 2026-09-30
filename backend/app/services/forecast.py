@@ -548,7 +548,7 @@ def _prophet_forecast(
         weekly_seasonality=True,
         yearly_seasonality=len(df) >= 730,
         seasonality_mode="additive",
-        interval_width=0.8,
+        interval_width=0.5,
         changepoint_prior_scale=0.05,
         seasonality_prior_scale=5.0,
         holidays=holidays if not holidays.empty else None,

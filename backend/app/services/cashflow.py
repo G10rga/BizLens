@@ -134,18 +134,62 @@ def project_cashflow(
             }
         )
 
+    n30 = min(len(timeline), 30)
+    sales_30 = _sales_sum(timeline, 30, "income_likely")
+    sales_60 = _sales_sum(timeline, 60, "income_likely")
+    sales_90 = _sales_sum(timeline, 90, "income_likely")
+    sales_30_low, sales_30_high = _tight_total_range(
+        sales_30,
+        _sales_sum(timeline, 30, "income_worst"),
+        _sales_sum(timeline, 30, "income_best"),
+    )
+    sales_60_low, sales_60_high = _tight_total_range(
+        sales_60,
+        _sales_sum(timeline, 60, "income_worst"),
+        _sales_sum(timeline, 60, "income_best"),
+    )
+    sales_90_low, sales_90_high = _tight_total_range(
+        sales_90,
+        _sales_sum(timeline, 90, "income_worst"),
+        _sales_sum(timeline, 90, "income_best"),
+    )
+
+    cash_30 = _cash_at(timeline, 29)
+    cash_60 = _cash_at(timeline, 59)
+    cash_30_low, cash_30_high = _tight_total_range(
+        cash_30,
+        _cash_at(timeline, 29, "cash_worst"),
+        _cash_at(timeline, 29, "cash_best"),
+        max_pct=0.15,
+    )
+    cash_60_low, cash_60_high = _tight_total_range(
+        cash_60,
+        _cash_at(timeline, 59, "cash_worst"),
+        _cash_at(timeline, 59, "cash_best"),
+        max_pct=0.15,
+    )
+
     summary = {
         "cash_today": round(starting_cash, 2),
-        "cash_30": _cash_at(timeline, 29),
-        "cash_60": _cash_at(timeline, 59),
+        "cash_30": cash_30,
+        "cash_60": cash_60,
         "cash_90": _cash_at(timeline, min(len(timeline) - 1, 89)),
-        "sales_30": _sales_sum(timeline, 30),
-        "sales_60": _sales_sum(timeline, 60),
-        "sales_90": _sales_sum(timeline, 90),
-        "avg_daily_sales": round(
-            (_sales_sum(timeline, min(len(timeline), 30)) or 0) / max(min(len(timeline), 30), 1),
-            2,
-        ),
+        "cash_30_low": cash_30_low,
+        "cash_30_high": cash_30_high,
+        "cash_60_low": cash_60_low,
+        "cash_60_high": cash_60_high,
+        "sales_30": sales_30,
+        "sales_30_low": sales_30_low,
+        "sales_30_high": sales_30_high,
+        "sales_60": sales_60,
+        "sales_60_low": sales_60_low,
+        "sales_60_high": sales_60_high,
+        "sales_90": sales_90,
+        "sales_90_low": sales_90_low,
+        "sales_90_high": sales_90_high,
+        "avg_daily_sales": round((sales_30 or 0) / max(n30, 1), 2),
+        "avg_daily_sales_low": round((sales_30_low or 0) / max(n30, 1), 2),
+        "avg_daily_sales_high": round((sales_30_high or 0) / max(n30, 1), 2),
         "days_until_danger": _days_until_danger(timeline),
     }
 
@@ -164,17 +208,44 @@ def _zone(cash: float) -> str:
     return "red"
 
 
-def _cash_at(timeline: List[dict], idx: int) -> float | None:
+def _cash_at(timeline: List[dict], idx: int, key: str = "cash_likely") -> float | None:
     if idx < 0 or idx >= len(timeline):
         return None
-    return timeline[idx]["cash_likely"]
+    return timeline[idx][key]
 
 
-def _sales_sum(timeline: List[dict], days: int) -> float | None:
+def _sales_sum(timeline: List[dict], days: int, key: str = "income_likely") -> float | None:
     if not timeline:
         return None
     chunk = timeline[:days]
-    return round(sum(row["income_likely"] for row in chunk), 2)
+    return round(sum(row[key] for row in chunk), 2)
+
+
+def _tight_total_range(
+    likely: float | None,
+    raw_low: float | None,
+    raw_high: float | None,
+    *,
+    shrink: float = 0.28,
+    min_pct: float = 0.05,
+    max_pct: float = 0.12,
+) -> tuple[float | None, float | None]:
+    """
+    Monthly card ranges: summing every day's low/high assumes all days hit
+    extremes together and looks absurdly wide. Shrink toward the likely total
+    and clamp to about ±5–12%.
+    """
+    if likely is None:
+        return raw_low, raw_high
+    lo_src = raw_low if raw_low is not None else likely
+    hi_src = raw_high if raw_high is not None else likely
+    lo = likely - (likely - lo_src) * shrink
+    hi = likely + (hi_src - likely) * shrink
+    lo = max(lo, likely * (1.0 - max_pct))
+    hi = min(hi, likely * (1.0 + max_pct))
+    lo = min(lo, likely * (1.0 - min_pct))
+    hi = max(hi, likely * (1.0 + min_pct))
+    return round(lo, 2), round(hi, 2)
 
 
 def _days_until_danger(timeline: List[dict]) -> int | None:
