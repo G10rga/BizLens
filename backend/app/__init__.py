@@ -19,11 +19,7 @@ from .seed import seed_demo_if_needed
 
 
 def create_app(config_object=Config):
-    app = Flask(
-        __name__,
-        static_folder=str(config_object.FRONTEND_DIR),
-        static_url_path="/ui",
-    )
+    app = Flask(__name__, static_folder=None)
     app.config.from_object(config_object)
 
     db.init_app(app)
@@ -40,13 +36,35 @@ def create_app(config_object=Config):
     app.register_blueprint(csv_import.bp)
     app.register_blueprint(settings.bp)
 
+    dist = app.config["FRONTEND_DIST"]
+    stitch = app.config["STITCH_DIR"]
+
     @app.get("/api/health")
     def health():
         return jsonify({"status": "ok", "app": "BizLens"})
 
     @app.get("/")
     def index():
-        return send_from_directory(app.static_folder, "index.html")
+        return send_from_directory(dist, "index.html")
+
+    @app.get("/assets/<path:filename>")
+    def spa_assets(filename):
+        return send_from_directory(dist / "assets", filename)
+
+    @app.get("/stitch/<path:filename>")
+    def stitch_assets(filename):
+        return send_from_directory(stitch, filename)
+
+    @app.errorhandler(404)
+    def spa_fallback(e):
+        # API 404s stay JSON; UI routes fall back to SPA
+        from flask import request
+
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Not found"}), 404
+        if dist.joinpath("index.html").exists():
+            return send_from_directory(dist, "index.html")
+        return jsonify({"error": "Frontend not built. Run: cd web && npm run build"}), 503
 
     with app.app_context():
         db.create_all()

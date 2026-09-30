@@ -35,7 +35,8 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = False
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
     DEMO_SEED = os.getenv("DEMO_SEED", "true").lower() in {"1", "true", "yes"}
-    FRONTEND_DIR = PROJECT_ROOT / "frontend"
+    FRONTEND_DIST = PROJECT_ROOT / "web" / "dist"
+    STITCH_DIR = PROJECT_ROOT / "frontend"
     UPLOAD_DIR = INSTANCE_DIR / "uploads"
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024

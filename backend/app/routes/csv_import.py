@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 from ..config import Config
 from ..extensions import db
 from ..models import CsvImport
-from ..services.csv_parser import parse_sales_csv
+from ..services.csv_parser import parse_sales_file
 from ..services.sales_agg import set_daily_revenue
 from .helpers import require_business
 
@@ -37,8 +37,8 @@ def preview(business):
     file = request.files["file"]
     if not file.filename:
         return jsonify({"error": "Empty filename"}), 400
-    text = file.read().decode("utf-8-sig", errors="replace")
-    rows, warnings = parse_sales_csv(text)
+    raw = file.read()
+    rows, warnings = parse_sales_file(raw, filename=file.filename)
     return jsonify(
         {
             "preview": rows[:30],
@@ -60,14 +60,13 @@ def import_csv(business):
     if not file.filename:
         return jsonify({"error": "Empty filename"}), 400
 
-    filename = secure_filename(file.filename)
+    filename = secure_filename(file.filename) or "upload.xlsx"
     raw = file.read()
     save_path = Path(Config.UPLOAD_DIR) / f"{business.id}_{filename}"
     save_path.write_bytes(raw)
 
     try:
-        text = raw.decode("utf-8-sig", errors="replace")
-        rows, warnings = parse_sales_csv(text)
+        rows, warnings = parse_sales_file(raw, filename=file.filename)
         for row in rows:
             set_daily_revenue(
                 business.id,

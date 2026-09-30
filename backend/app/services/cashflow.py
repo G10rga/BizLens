@@ -139,6 +139,13 @@ def project_cashflow(
         "cash_30": _cash_at(timeline, 29),
         "cash_60": _cash_at(timeline, 59),
         "cash_90": _cash_at(timeline, min(len(timeline) - 1, 89)),
+        "sales_30": _sales_sum(timeline, 30),
+        "sales_60": _sales_sum(timeline, 60),
+        "sales_90": _sales_sum(timeline, 90),
+        "avg_daily_sales": round(
+            (_sales_sum(timeline, min(len(timeline), 30)) or 0) / max(min(len(timeline), 30), 1),
+            2,
+        ),
         "days_until_danger": _days_until_danger(timeline),
     }
 
@@ -161,6 +168,13 @@ def _cash_at(timeline: List[dict], idx: int) -> float | None:
     if idx < 0 or idx >= len(timeline):
         return None
     return timeline[idx]["cash_likely"]
+
+
+def _sales_sum(timeline: List[dict], days: int) -> float | None:
+    if not timeline:
+        return None
+    chunk = timeline[:days]
+    return round(sum(row["income_likely"] for row in chunk), 2)
 
 
 def _days_until_danger(timeline: List[dict]) -> int | None:

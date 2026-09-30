@@ -233,15 +233,14 @@ def holiday_markers(start: date, end: date) -> List[dict]:
 
 
 def daily_seasonality_factor(d: date, business_type: str) -> float:
-    """Return a multiplicative factor for a given day based on Georgian events."""
+    """Return a mild multiplicative factor for Georgian events (no explosive stacking)."""
     multipliers = BUSINESS_TYPE_EVENT_MULTIPLIERS.get(
         business_type, BUSINESS_TYPE_EVENT_MULTIPLIERS["other"]
     )
-    factor = 1.0
+    effects = []
     for event in georgian_events_for_year(d.year):
         key = event["key"]
         if key not in multipliers:
-            # map close keys
             if key == "independence_day":
                 mult = 1.1
             elif key in {"mariamoba", "giorgoba"}:
@@ -254,10 +253,13 @@ def daily_seasonality_factor(d: date, business_type: str) -> float:
         window_start = event["start"] - timedelta(days=event.get("prep_days", 0))
         window_end = event["end"]
         if window_start <= d <= window_end:
-            # Blend toward event multiplier (don't stack explosively)
-            factor *= mult
-    # Keep within sane bounds
-    return max(0.4, min(factor, 2.5))
+            effects.append(mult)
+
+    if not effects:
+        return 1.0
+    # Combine as average deviation from 1.0 (not product)
+    avg = sum(effects) / len(effects)
+    return max(0.7, min(avg, 1.6))
 
 
 def prophet_holiday_frame(years: List[int]):

@@ -1,13 +1,12 @@
-"""Universal CSV parser for POS exports → date + revenue."""
+"""Universal sales file parser (CSV / Excel) → date + revenue."""
 
 from __future__ import annotations
 
-from datetime import datetime
-from io import StringIO
+import re
+from io import BytesIO, StringIO
 from typing import List, Tuple
 
 import pandas as pd
-
 
 DATE_CANDIDATES = [
     "date",
@@ -40,6 +39,12 @@ REVENUE_CANDIDATES = [
     "y",
 ]
 
+# Matches: 6/25/2023 (Sun)  or  2023-06-25 (Monday)
+_WEEKDAY_SUFFIX = re.compile(
+    r"\s*\(\s*(Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s*\)\s*$",
+    re.IGNORECASE,
+)
+
 
 def _pick_column(columns, candidates) -> str | None:
     lower_map = {str(c).strip().lower(): c for c in columns}
@@ -47,7 +52,6 @@ def _pick_column(columns, candidates) -> str | None:
         key = cand.lower()
         if key in lower_map:
             return lower_map[key]
-    # fuzzy contains
     for col in columns:
         cl = str(col).strip().lower()
         for cand in candidates:
@@ -56,61 +60,107 @@ def _pick_column(columns, candidates) -> str | None:
     return None
 
 
-def parse_sales_csv(text: str) -> Tuple[List[dict], List[str]]:
+def _clean_date_value(raw) -> pd.Timestamp | None:
+    if pd.isna(raw):
+        return None
+    # Excel may already give a datetime
+    if hasattr(raw, "to_pydatetime"):
+        return pd.Timestamp(raw)
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        # Excel serial date
+        try:
+            return pd.to_datetime(raw, unit="D", origin="1899-12-30")
+        except Exception:  # noqa: BLE001
+            pass
+
+    text = str(raw).strip()
+    text = _WEEKDAY_SUFFIX.sub("", text).strip()
+    # Prefer US style M/D/YYYY for this shop export
+    ds = pd.to_datetime(text, errors="coerce", dayfirst=False)
+    if pd.isna(ds):
+        ds = pd.to_datetime(text, errors="coerce", dayfirst=True)
+    if pd.isna(ds):
+        return None
+    return pd.Timestamp(ds)
+
+
+def _dataframe_from_bytes(data: bytes, filename: str = "") -> pd.DataFrame:
+    name = (filename or "").lower()
+    if name.endswith((".xlsx", ".xls", ".xlsm")):
+        return pd.read_excel(BytesIO(data))
+
+    # Try Excel anyway if binary-looking, else CSV
+    try:
+        return pd.read_excel(BytesIO(data))
+    except Exception:  # noqa: BLE001
+        pass
+
+    text = data.decode("utf-8-sig", errors="replace")
+    for sep in [",", ";", "\t"]:
+        try:
+            candidate = pd.read_csv(StringIO(text), sep=sep)
+            if candidate.shape[1] >= 2:
+                return candidate
+        except Exception:  # noqa: BLE001
+            continue
+    raise ValueError("Could not parse file. Upload CSV or Excel with Date and Total columns.")
+
+
+def parse_sales_file(data: bytes, filename: str = "") -> Tuple[List[dict], List[str]]:
     """
     Returns (rows, warnings).
     rows: [{date: 'YYYY-MM-DD', revenue: float}]
     """
     warnings: List[str] = []
-    # Try separators
-    df = None
-    for sep in [",", ";", "\t"]:
-        try:
-            candidate = pd.read_csv(StringIO(text), sep=sep)
-            if candidate.shape[1] >= 2:
-                df = candidate
-                break
-        except Exception:  # noqa: BLE001
-            continue
+    df = _dataframe_from_bytes(data, filename)
     if df is None or df.empty:
-        raise ValueError("Could not parse CSV. Provide at least date and revenue columns.")
+        raise ValueError("File is empty.")
+
+    # Drop fully empty rows
+    df = df.dropna(how="all")
 
     date_col = _pick_column(df.columns, DATE_CANDIDATES)
     rev_col = _pick_column(df.columns, REVENUE_CANDIDATES)
 
     if date_col is None or rev_col is None:
-        # Fallback: first column date-like, second numeric
         if df.shape[1] < 2:
-            raise ValueError("CSV must include date and revenue columns.")
+            raise ValueError("File must include Date and Total columns.")
         date_col = df.columns[0]
         rev_col = df.columns[1]
-        warnings.append(
-            f"Using columns '{date_col}' and '{rev_col}' as date/revenue."
-        )
+        warnings.append(f"Using columns '{date_col}' and '{rev_col}' as date/revenue.")
 
     parsed = []
+    skipped = 0
     for _, row in df.iterrows():
-        raw_date = row[date_col]
+        ds = _clean_date_value(row[date_col])
         raw_rev = row[rev_col]
-        if pd.isna(raw_date) or pd.isna(raw_rev):
+        if ds is None or pd.isna(raw_rev):
+            skipped += 1
             continue
         try:
-            ds = pd.to_datetime(raw_date, dayfirst=True, errors="coerce")
-            if pd.isna(ds):
-                continue
-            revenue = float(str(raw_rev).replace(",", "").replace("₾", "").strip())
+            revenue = float(str(raw_rev).replace(",", "").replace("₾", "").replace("$", "").strip())
         except Exception:  # noqa: BLE001
+            skipped += 1
             continue
         if revenue < 0:
             continue
         parsed.append({"date": ds.date().isoformat(), "revenue": revenue})
 
     if not parsed:
-        raise ValueError("No valid date/revenue rows found in CSV.")
+        raise ValueError(
+            "No valid Date/Total rows found. Expected dates like 6/25/2023 (Sun) and totals like 80.30."
+        )
 
-    # Aggregate duplicate dates
+    if skipped:
+        warnings.append(f"Skipped {skipped} unreadable rows.")
+
     agg = {}
     for item in parsed:
         agg[item["date"]] = agg.get(item["date"], 0.0) + item["revenue"]
     rows = [{"date": k, "revenue": round(v, 2)} for k, v in sorted(agg.items())]
     return rows, warnings
+
+
+def parse_sales_csv(text: str) -> Tuple[List[dict], List[str]]:
+    """Backward-compatible wrapper for CSV text."""
+    return parse_sales_file(text.encode("utf-8-sig"), filename="upload.csv")
