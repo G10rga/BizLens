@@ -139,6 +139,56 @@ def _level_and_weekly(history: pd.DataFrame) -> Tuple[float, np.ndarray, float, 
     return max(0.0, open_level), weekly, raw_avg, daily_drift, open_prob
 
 
+def _week_templates(filled: pd.DataFrame) -> list[np.ndarray]:
+    """
+    Extract real Mon–Sun sales vectors from history (including closed days as 0).
+    Most recent weeks last in the list. Skips partial/edge weeks.
+    """
+    if filled is None or filled.empty:
+        return []
+    df = filled.copy().sort_values("ds")
+    first_sale = df.loc[df["y"] > 0, "ds"].min()
+    last_sale = df.loc[df["y"] > 0, "ds"].max()
+    if pd.isna(first_sale):
+        return []
+    df["dow"] = df["ds"].dt.dayofweek
+    df["week_start"] = df["ds"] - pd.to_timedelta(df["dow"], unit="D")
+    templates: list[np.ndarray] = []
+    for week_start, g in df.groupby("week_start", sort=True):
+        ws = pd.Timestamp(week_start)
+        we = ws + pd.Timedelta(days=6)
+        # skip incomplete edge weeks
+        if ws < first_sale.normalize() - pd.Timedelta(days=first_sale.dayofweek):
+            continue
+        if we > last_sale.normalize() + pd.Timedelta(days=(6 - last_sale.dayofweek)):
+            # allow last week if it contains the last sale
+            if last_sale < ws or last_sale > we:
+                continue
+        by_dow = g.groupby("dow")["y"].sum()
+        vec = by_dow.reindex(range(7), fill_value=0.0).to_numpy(dtype=float)
+        open_days = int((vec > 0).sum())
+        if open_days >= 4 and float(vec.sum()) > 0:
+            templates.append(vec)
+    return templates[-16:]
+
+
+def _dow_bands(filled: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    """Per-weekday low/high bands from history (p20 / p80)."""
+    low = np.zeros(7)
+    high = np.ones(7) * 100.0
+    if filled is None or filled.empty:
+        return low, high
+    df = filled.copy()
+    df["dow"] = df["ds"].dt.dayofweek
+    for dow in range(7):
+        vals = df.loc[df["dow"] == dow, "y"].to_numpy(dtype=float)
+        if len(vals) == 0:
+            continue
+        low[dow] = float(np.percentile(vals, 20))
+        high[dow] = float(np.percentile(vals, 80))
+    return low, high
+
+
 def _raw_forecast_from_params(
     *,
     base: float,
@@ -148,24 +198,59 @@ def _raw_forecast_from_params(
     horizon: int,
     daily_drift: float = 0.0,
     open_prob: np.ndarray | None = None,
+    history: pd.DataFrame | None = None,
 ) -> List[dict]:
+    """
+    Build daily forecast from *real* historical week shapes, scaled to the
+    multi-month level — not a flat repeating weekday formula.
+    """
     if open_prob is None:
         open_prob = np.ones(7)
-    out = []
+
+    filled = _fill_calendar(history) if history is not None and not history.empty else None
+    templates = _week_templates(filled) if filled is not None else []
+    dow_low, dow_high = _dow_bands(filled) if filled is not None else (np.zeros(7), np.ones(7) * base)
+
+    # Expected average daily from parametric level (for scaling templates)
+    expected_daily = float(
+        np.mean([base * float(weekly[d]) * float(open_prob[d]) for d in range(7)])
+    )
+    expected_daily = max(expected_daily, 1.0)
+
+    out: List[dict] = []
     for i in range(horizon):
         d = start + timedelta(days=i)
         dow = d.weekday()
         geo = daily_seasonality_factor(d, business_type)
-        geo_soft = 1.0 + (geo - 1.0) * 0.15
-        level = base * ((1.0 + daily_drift) ** i)
-        # Expected sales = open-day sales * P(open that weekday)
-        yhat = level * float(weekly[dow]) * float(open_prob[dow]) * geo_soft
+        geo_soft = 1.0 + (geo - 1.0) * 0.2
+        level_scale = ((1.0 + daily_drift) ** i) * geo_soft
+
+        if templates:
+            # Cycle through real weeks (recent first), so the chart isn't identical every week
+            tmpl = templates[-(1 + (i // 7) % len(templates))]
+            tmpl_avg = float(np.mean(tmpl)) if float(np.mean(tmpl)) > 1e-6 else expected_daily
+            # Scale this historical week to the forecast level
+            week_scale = (expected_daily * level_scale) / tmpl_avg
+            yhat = float(tmpl[dow]) * week_scale
+            # Bands from same-weekday history, also scaled toward forecast level
+            y_low = float(dow_low[dow]) * week_scale
+            y_high = float(dow_high[dow]) * week_scale
+            # Keep bands around yhat
+            yhat_lower = min(yhat, y_low) * 0.5 + yhat * 0.5 * 0.85
+            yhat_upper = max(yhat, y_high) * 0.5 + yhat * 0.5 * 1.15
+            yhat_lower = min(yhat_lower, yhat * 0.92)
+            yhat_upper = max(yhat_upper, yhat * 1.08)
+        else:
+            yhat = base * float(weekly[dow]) * float(open_prob[dow]) * level_scale
+            yhat_lower = yhat * 0.85
+            yhat_upper = yhat * 1.15
+
         out.append(
             {
                 "date": d.isoformat(),
                 "yhat": round(max(0.0, yhat), 2),
-                "yhat_lower": round(max(0.0, yhat * 0.85), 2),
-                "yhat_upper": round(max(0.0, yhat * 1.15), 2),
+                "yhat_lower": round(max(0.0, yhat_lower), 2),
+                "yhat_upper": round(max(0.0, yhat_upper), 2),
             }
         )
     return out
@@ -213,6 +298,7 @@ def _backtest_scale(
         horizon=len(actual),
         daily_drift=drift,
         open_prob=open_prob,
+        history=train,
     )
     pred_sum = sum(p["yhat"] for p in predicted)
     act_sum = float(actual["y"].sum())
@@ -249,6 +335,7 @@ def _fallback_forecast(
         horizon=horizon,
         daily_drift=drift,
         open_prob=open_prob,
+        history=history,
     )
     # Backtest is diagnostic only. Applying its scale to the *next* month
     # wrongly copies last month's surprise (e.g. weak Sep) into Oct.
@@ -370,6 +457,7 @@ def backtest_forecast(
         horizon=holdout_days,
         daily_drift=drift,
         open_prob=open_prob,
+        history=train,
     )[: len(actual)]
 
     # Also show calibrated version (what the live model would do on train only)
