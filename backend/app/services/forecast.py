@@ -523,10 +523,12 @@ def _prophet_forecast(
     years = sorted({ts.year for ts in df["ds"]} | {start.year, start.year + 1})
     holidays = prophet_holiday_frame(years)
 
+    # Yearly Fourier terms need ~2 years; with <730d Prophet warns and
+    # trend/seasonality can be unstable. Weekly + Georgian holidays/geo cover short histories.
     model = Prophet(
         daily_seasonality=False,
         weekly_seasonality=True,
-        yearly_seasonality=len(df) >= 120,
+        yearly_seasonality=len(df) >= 730,
         seasonality_mode="multiplicative",
         interval_width=0.8,
         holidays=holidays if not holidays.empty else None,
