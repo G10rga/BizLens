@@ -356,6 +356,8 @@ def forecast_sales(
     horizon_days: int = 90,
     as_of: Optional[date] = None,
 ) -> dict:
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+
     as_of = as_of or date.today()
     history = _prepare_history(daily_rows)
     forecast_start = as_of + timedelta(days=1)
@@ -391,7 +393,16 @@ def forecast_sales(
 
     if use_prophet and prophet_available:
         try:
-            future_income = _prophet_forecast(history, horizon_days, business_type, forecast_start)
+            # Hard timeout — Stan can look "stuck" for a long time on Windows
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                fut = pool.submit(
+                    _prophet_forecast,
+                    history,
+                    horizon_days,
+                    business_type,
+                    forecast_start,
+                )
+                future_income = fut.result(timeout=20)
             _, backtest = _backtest_scale(history, business_type, holdout_days=30)
             base, _, raw_avg, _, _ = _level_and_weekly(history)
             meta = {
@@ -401,6 +412,11 @@ def forecast_sales(
                 "backtest": backtest,
             }
             model_name = "prophet"
+        except FuturesTimeout:
+            future_income, meta = _fallback_forecast(
+                history, horizon_days, business_type, forecast_start
+            )
+            model_name = "seasonal_baseline_after_prophet_timeout"
         except Exception as exc:  # noqa: BLE001
             future_income, meta = _fallback_forecast(
                 history, horizon_days, business_type, forecast_start
@@ -514,8 +530,11 @@ def _prophet_forecast(
 ) -> List[dict]:
     from prophet import Prophet
 
-    filled = _fill_calendar(history)
-    df = filled.copy()
+    # Fit on observed sales only. Zero-filled closed days + multiplicative
+    # seasonality makes Stan slow and can inflate forecasts.
+    df = history[history["y"] > 0].copy()
+    if len(df) < 21:
+        df = history.copy()
     df["geo_factor"] = [
         daily_seasonality_factor(ts.date(), business_type) for ts in df["ds"]
     ]
@@ -523,17 +542,18 @@ def _prophet_forecast(
     years = sorted({ts.year for ts in df["ds"]} | {start.year, start.year + 1})
     holidays = prophet_holiday_frame(years)
 
-    # Yearly Fourier terms need ~2 years; with <730d Prophet warns and
-    # trend/seasonality can be unstable. Weekly + Georgian holidays/geo cover short histories.
+    # Yearly Fourier terms need ~2 years; with <730d they are under-identified.
     model = Prophet(
         daily_seasonality=False,
         weekly_seasonality=True,
         yearly_seasonality=len(df) >= 730,
-        seasonality_mode="multiplicative",
+        seasonality_mode="additive",
         interval_width=0.8,
+        changepoint_prior_scale=0.05,
+        seasonality_prior_scale=5.0,
         holidays=holidays if not holidays.empty else None,
     )
-    model.add_regressor("geo_factor")
+    model.add_regressor("geo_factor", prior_scale=0.5, mode="additive")
     model.fit(df[["ds", "y", "geo_factor"]])
 
     future_only = pd.DataFrame(
@@ -544,14 +564,21 @@ def _prophet_forecast(
     ]
 
     forecast = model.predict(future_only)
+    # Soft cap so a bad fit can't show absurd daily sales
+    hist_hi = float(df["y"].quantile(0.95)) if len(df) else 200.0
+    cap = max(hist_hi * 1.6, 50.0)
+
     out = []
     for _, row in forecast.iterrows():
+        yhat = min(max(0.0, float(row["yhat"])), cap)
+        y_lo = min(max(0.0, float(row["yhat_lower"])), cap)
+        y_hi = min(max(0.0, float(row["yhat_upper"])), max(cap, yhat))
         out.append(
             {
                 "date": row["ds"].date().isoformat(),
-                "yhat": round(max(0.0, float(row["yhat"])), 2),
-                "yhat_lower": round(max(0.0, float(row["yhat_lower"])), 2),
-                "yhat_upper": round(max(0.0, float(row["yhat_upper"])), 2),
+                "yhat": round(yhat, 2),
+                "yhat_lower": round(min(y_lo, yhat), 2),
+                "yhat_upper": round(max(y_hi, yhat), 2),
             }
         )
     return out
