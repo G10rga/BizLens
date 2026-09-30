@@ -5,11 +5,23 @@ export default function CsvUpload() {
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [history, setHistory] = useState([])
+  const [dailyDays, setDailyDays] = useState(0)
+  const [replace, setReplace] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const loadHistory = async () => setHistory(await api('/csv/history'))
+  const loadHistory = async () => {
+    const res = await api('/csv/history')
+    // backward compatible if API still returns a bare array
+    if (Array.isArray(res)) {
+      setHistory(res)
+      setDailyDays(0)
+    } else {
+      setHistory(res.imports || [])
+      setDailyDays(res.daily_sales_days || 0)
+    }
+  }
 
   useEffect(() => {
     loadHistory().catch((e) => setError(e.message))
@@ -18,6 +30,7 @@ export default function CsvUpload() {
   const formData = () => {
     const fd = new FormData()
     fd.append('file', file)
+    fd.append('replace', replace ? 'true' : 'false')
     return fd
   }
 
@@ -41,7 +54,35 @@ export default function CsvUpload() {
     setSuccess('')
     try {
       const res = await api('/csv/import', { method: 'POST', body: formData() })
-      setSuccess(`იმპორტირებულია ${res.rows_imported} დღე`)
+      setSuccess(
+        `${res.replaced ? 'ძველი მონაცემები წაიშალა · ' : ''}იმპორტირებულია ${res.rows_imported} დღე`
+      )
+      setPreview(null)
+      setFile(null)
+      await loadHistory()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const doClear = async () => {
+    const ok = window.confirm(
+      'წავშალოთ ყველა იმპორტირებული / დღიური გაყიდვების მონაცემი და POS ჩეკები?\nშემდეგ შეძლებთ ახალი ფაილის ატვირთვას.'
+    )
+    if (!ok) return
+    setBusy(true)
+    setError('')
+    setSuccess('')
+    try {
+      const res = await api('/csv/data', {
+        method: 'DELETE',
+        body: JSON.stringify({ include_pos: true }),
+      })
+      setSuccess(
+        `წაიშალა: ${res.daily_sales_deleted} დღე, ${res.imports_deleted} იმპორტი, ${res.pos_sales_deleted} POS გაყიდვა`
+      )
       setPreview(null)
       setFile(null)
       await loadHistory()
@@ -57,8 +98,14 @@ export default function CsvUpload() {
       <div className="topbar">
         <div>
           <h1>CSV / Excel იმპორტი (Pro)</h1>
-          <p className="muted">ატვირთეთ POS ექსპორტი · სვეტები: Date + Total</p>
+          <p className="muted">
+            ატვირთეთ POS ექსპორტი · სვეტები: Date + Total
+            {dailyDays ? ` · ამჟამად ბაზაში ${dailyDays} დღე` : ''}
+          </p>
         </div>
+        <button className="btn danger" disabled={busy || (!dailyDays && !history.length)} onClick={doClear}>
+          მონაცემების წაშლა
+        </button>
       </div>
       {error && <div className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
@@ -76,6 +123,14 @@ export default function CsvUpload() {
               }}
             />
           </div>
+          <label className="row" style={{ marginTop: '1rem', gap: '0.5rem' }}>
+            <input
+              type="checkbox"
+              checked={replace}
+              onChange={(e) => setReplace(e.target.checked)}
+            />
+            <span>იმპორტამდე წაშალე ძველი დღიური გაყიდვები (replace)</span>
+          </label>
           <div className="row" style={{ marginTop: '1rem' }}>
             <button className="btn secondary" disabled={!file || busy} onClick={doPreview}>Preview</button>
             <button className="btn" disabled={!file || busy} onClick={doImport}>Import</button>
@@ -97,7 +152,7 @@ export default function CsvUpload() {
           )}
         </div>
         <div className="card">
-          <h2>ისტორია</h2>
+          <h2>იმპორტის ისტორია</h2>
           <table className="table">
             <thead>
               <tr><th>ფაილი</th><th>სტატუსი</th><th>რიგები</th><th>დრო</th></tr>
