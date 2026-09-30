@@ -9,14 +9,10 @@ env/
 ENV/
 *.egg-info/
 .eggs/
-dist/
 build/
 .env
 .env.*
 !.env.example
-instance/*.db
-instance/*.sqlite
-instance/*.sqlite3
 *.log
 .pytest_cache/
 .mypy_cache/
@@ -28,6 +24,7 @@ Thumbs.db
 .vscode/
 *.csv
 !backend/sample_data/*.csv
-
-backend/instance/
-!.gitkeep
+backend/instance/*.db
+backend/instance/*.sqlite
+backend/instance/uploads/
+web/node_modules/
