@@ -17,6 +17,7 @@ from ..models import Product, ReceiptCapture, Sale, SaleItem
 from ..services.lens_completeness import completeness_report
 from ..services.receipt_ocr import (
     combine_sold_at,
+    ocr_status,
     parse_image,
     parse_receipt_text,
     sample_receipt_text,
@@ -39,6 +40,14 @@ def _lens_dir(business_id: int) -> Path:
 def completeness(business):
     days = request.args.get("days", default=14, type=int)
     return jsonify(completeness_report(business, days=days))
+
+
+@bp.get("/ocr-status")
+@jwt_required()
+@require_business
+def lens_ocr_status(business):
+    """Show which free/paid OCR engines Lens can use."""
+    return jsonify(ocr_status())
 
 
 @bp.get("/history")

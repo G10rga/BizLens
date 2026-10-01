@@ -33,6 +33,6 @@ services:
         fromDatabase:
           name: bizlens-db
           property: connectionString
-      # Optional Lens Mode vision OCR:
-      # - key: OPENAI_API_KEY
+      # Free Lens OCR (https://ocr.space/ocrapi) — optional; demo key used if unset
+      # - key: OCR_SPACE_API_KEY
       #   sync: false
