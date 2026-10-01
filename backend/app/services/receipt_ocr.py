@@ -55,18 +55,40 @@ def sample_receipt_text() -> str:
     return SAMPLE_RECEIPT_TEXT.strip()
 
 
+def ocr_status() -> dict[str, Any]:
+    """Which free/paid OCR backends are available right now."""
+    tess_ok = _tesseract_available()
+    ocr_space_key = os.getenv("OCR_SPACE_API_KEY", "helloworld").strip()
+    return {
+        "tesseract": tess_ok,
+        "ocr_space": bool(ocr_space_key),
+        "ocr_space_key_set": bool(os.getenv("OCR_SPACE_API_KEY", "").strip()),
+        "openai_vision": bool(os.getenv("OPENAI_API_KEY", "").strip()),
+        "preferred_order": ["tesseract", "ocr_space", "openai_vision"],
+        "note": (
+            "Free path: Tesseract (local) or OCR.space (cloud). "
+            "Get a free OCR.space key at https://ocr.space/ocrapi — "
+            "or leave unset to use the public helloworld demo key (rate-limited)."
+        ),
+    }
+
+
 def extract_text_from_image(image_bytes: bytes, filename: str = "receipt.jpg") -> tuple[str, str]:
     """
     Returns (raw_text, engine_name).
-    Tries OpenAI Vision → Tesseract → empty.
+    Free-first: Tesseract → OCR.space → optional OpenAI Vision → empty.
     """
-    openai_text = _openai_vision_extract(image_bytes, filename)
-    if openai_text:
-        return openai_text, "openai_vision"
-
     tess = _tesseract_extract(image_bytes)
     if tess:
         return tess, "tesseract"
+
+    space = _ocr_space_extract(image_bytes, filename)
+    if space:
+        return space, "ocr_space"
+
+    openai_text = _openai_vision_extract(image_bytes, filename)
+    if openai_text:
+        return openai_text, "openai_vision"
 
     return "", "none"
 
@@ -92,6 +114,18 @@ def parse_receipt_text(raw_text: str) -> dict[str, Any]:
     payment = _parse_payment(text)
     tin = _parse_tin(text)
     items = _parse_items(text)
+
+    # Free OCR often drops the "Total" line — fall back to sum of items
+    if total is None and items:
+        total = round(sum(float(i.get("line_total") or 0) for i in items), 2)
+        warnings.append("Total inferred from line items — please verify")
+    elif total is not None and items:
+        items_sum = round(sum(float(i.get("line_total") or 0) for i in items), 2)
+        if items_sum > 0 and abs(items_sum - total) > 0.05 and items_sum > total:
+            # OCR sometimes picks a line price as "total"; prefer items sum when larger
+            if total <= max(float(i.get("line_total") or 0) for i in items) + 0.001:
+                warnings.append(f"Total looked low ({total}); using items sum {items_sum}")
+                total = items_sum
 
     score = 0.15
     if receipt_date:
@@ -132,10 +166,87 @@ def parse_image(image_bytes: bytes, filename: str = "receipt.jpg") -> dict[str, 
     parsed["ocr_engine"] = engine
     if engine == "none":
         parsed["warnings"] = list(parsed.get("warnings") or []) + [
-            "OCR engine unavailable — use Demo scan or enter fields manually"
+            "No OCR text yet — enter total manually, or set OCR_SPACE_API_KEY (free), "
+            "or install Tesseract"
         ]
         parsed["parse_confidence"] = min(float(parsed.get("parse_confidence") or 0), 0.1)
+    elif engine == "ocr_space":
+        parsed["warnings"] = list(parsed.get("warnings") or []) + [
+            "Parsed with free OCR.space — review totals before confirming"
+        ]
     return parsed
+
+
+def _tesseract_available() -> bool:
+    try:
+        import pytesseract
+        from PIL import Image  # noqa: F401
+
+        pytesseract.get_tesseract_version()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _ocr_space_extract(image_bytes: bytes, filename: str) -> str:
+    """
+    Free cloud OCR via https://ocr.space (no credit card for free tier).
+    Uses OCR_SPACE_API_KEY, or the public demo key helloworld (rate-limited).
+    """
+    # Allow disabling: OCR_SPACE_API_KEY=off
+    key = os.getenv("OCR_SPACE_API_KEY", "helloworld").strip()
+    if not key or key.lower() in {"off", "false", "0", "disabled"}:
+        return ""
+
+    try:
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        mime = "image/jpeg"
+        lower = (filename or "").lower()
+        if lower.endswith(".png"):
+            mime = "image/png"
+        elif lower.endswith(".webp"):
+            mime = "image/webp"
+        elif lower.endswith(".gif"):
+            mime = "image/gif"
+
+        b64 = base64.b64encode(image_bytes).decode("ascii")
+        # Prefer base64 endpoint — simpler than multipart without extra deps
+        form = urllib.parse.urlencode(
+            {
+                "apikey": key,
+                "language": os.getenv("OCR_SPACE_LANGUAGE", "eng"),
+                "isOverlayRequired": "false",
+                "OCREngine": os.getenv("OCR_SPACE_ENGINE", "2"),
+                "scale": "true",
+                "base64Image": f"data:{mime};base64,{b64}",
+            }
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.ocr.space/parse/image",
+            data=form,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        if data.get("IsErroredOnProcessing"):
+            err = data.get("ErrorMessage") or data.get("ErrorDetails") or "ocr.space error"
+            if isinstance(err, list):
+                err = "; ".join(str(x) for x in err)
+            # Soft-fail so other engines / manual entry can continue
+            return ""
+
+        results = data.get("ParsedResults") or []
+        if not results:
+            return ""
+        text = (results[0].get("ParsedText") or "").strip()
+        return text
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _openai_vision_extract(image_bytes: bytes, filename: str) -> str:
