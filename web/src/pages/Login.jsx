@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth'
+import { LanguageSwitcher, useI18n } from '../i18n'
 
 export default function Login() {
   const { login, user, loading } = useAuth()
+  const { t } = useI18n()
   const [email, setEmail] = useState('demo@bizlens.ge')
   const [password, setPassword] = useState('demo1234')
   const [error, setError] = useState('')
@@ -29,22 +31,27 @@ export default function Login() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={onSubmit}>
-        <h1>BizLens</h1>
-        <p className="muted">შედით თქვენს ანგარიშში</p>
+        <div className="auth-card-head">
+          <div>
+            <h1>{t('login.title')}</h1>
+            <p className="muted">{t('login.subtitle')}</p>
+          </div>
+          <LanguageSwitcher variant="light" />
+        </div>
         {error && <div className="error">{error}</div>}
         <div className="field">
-          <label>ელფოსტა</label>
+          <label>{t('login.email')}</label>
           <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
         </div>
         <div className="field">
-          <label>პაროლი</label>
+          <label>{t('login.password')}</label>
           <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
         </div>
         <button className="btn" style={{ width: '100%' }} disabled={busy}>
-          {busy ? '...' : 'შესვლა'}
+          {busy ? t('common.saving') : t('login.submit')}
         </button>
         <p className="muted" style={{ marginTop: '1rem' }}>
-          ახალი ანგარიში? <Link to="/register">რეგისტრაცია</Link>
+          {t('login.noAccount')} <Link to="/register">{t('login.register')}</Link>
         </p>
       </form>
     </div>

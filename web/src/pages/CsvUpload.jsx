@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { api, money } from '../api'
+import { api } from '../api'
+import { useI18n } from '../i18n'
 
 export default function CsvUpload() {
+  const { t, money, lang } = useI18n()
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState(null)
   const [history, setHistory] = useState([])
@@ -13,7 +15,6 @@ export default function CsvUpload() {
 
   const loadHistory = async () => {
     const res = await api('/csv/history')
-    // backward compatible if API still returns a bare array
     if (Array.isArray(res)) {
       setHistory(res)
       setDailyDays(0)
@@ -55,7 +56,7 @@ export default function CsvUpload() {
     try {
       const res = await api('/csv/import', { method: 'POST', body: formData() })
       setSuccess(
-        `${res.replaced ? 'ძველი მონაცემები წაიშალა · ' : ''}იმპორტირებულია ${res.rows_imported} დღე`
+        `${res.replaced ? t('csv.replaced') : ''}${t('csv.imported', { rows: res.rows_imported })}`
       )
       setPreview(null)
       setFile(null)
@@ -68,9 +69,7 @@ export default function CsvUpload() {
   }
 
   const doClear = async () => {
-    const ok = window.confirm(
-      'წავშალოთ ყველა იმპორტირებული / დღიური გაყიდვების მონაცემი და POS ჩეკები?\nშემდეგ შეძლებთ ახალი ფაილის ატვირთვას.'
-    )
+    const ok = window.confirm(t('csv.confirmClear'))
     if (!ok) return
     setBusy(true)
     setError('')
@@ -81,7 +80,11 @@ export default function CsvUpload() {
         body: JSON.stringify({ include_pos: true }),
       })
       setSuccess(
-        `წაიშალა: ${res.daily_sales_deleted} დღე, ${res.imports_deleted} იმპორტი, ${res.pos_sales_deleted} POS გაყიდვა`
+        t('csv.cleared', {
+          days: res.daily_sales_deleted,
+          imports: res.imports_deleted,
+          pos: res.pos_sales_deleted,
+        })
       )
       setPreview(null)
       setFile(null)
@@ -97,14 +100,14 @@ export default function CsvUpload() {
     <>
       <div className="topbar">
         <div>
-          <h1>CSV / Excel იმპორტი (Pro)</h1>
+          <h1>{t('csv.title')}</h1>
           <p className="muted">
-            ატვირთეთ POS ექსპორტი · სვეტები: Date + Total
-            {dailyDays ? ` · ამჟამად ბაზაში ${dailyDays} დღე` : ''}
+            {t('csv.subtitle')}
+            {dailyDays ? t('csv.daysInDb', { days: dailyDays }) : ''}
           </p>
         </div>
         <button className="btn danger" disabled={busy || (!dailyDays && !history.length)} onClick={doClear}>
-          მონაცემების წაშლა
+          {t('csv.clear')}
         </button>
       </div>
       {error && <div className="error">{error}</div>}
@@ -112,8 +115,8 @@ export default function CsvUpload() {
       <div className="grid grid-2">
         <div className="card">
           <div className="dropzone">
-            <p><strong>აირჩიეთ Excel ან CSV</strong></p>
-            <p className="muted">მაგ: Date = 6/25/2023 (Sun), Total = 80.30</p>
+            <p><strong>{t('csv.pickFile')}</strong></p>
+            <p className="muted">{t('csv.example')}</p>
             <input
               type="file"
               accept=".xlsx,.xls,.xlsm,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
@@ -129,19 +132,19 @@ export default function CsvUpload() {
               checked={replace}
               onChange={(e) => setReplace(e.target.checked)}
             />
-            <span>იმპორტამდე წაშალე ძველი დღიური გაყიდვები (replace)</span>
+            <span>{t('csv.replace')}</span>
           </label>
           <div className="row" style={{ marginTop: '1rem' }}>
-            <button className="btn secondary" disabled={!file || busy} onClick={doPreview}>Preview</button>
-            <button className="btn" disabled={!file || busy} onClick={doImport}>Import</button>
+            <button className="btn secondary" disabled={!file || busy} onClick={doPreview}>{t('csv.preview')}</button>
+            <button className="btn" disabled={!file || busy} onClick={doImport}>{t('csv.import')}</button>
           </div>
           {preview && (
             <div style={{ marginTop: '1rem' }}>
               <p>
-                {preview.total_rows} დღე · {preview.date_from} → {preview.date_to}
+                {t('csv.previewMeta', { rows: preview.total_rows, from: preview.date_from, to: preview.date_to })}
               </p>
               <table className="table">
-                <thead><tr><th>თარიღი</th><th>გაყიდვა</th></tr></thead>
+                <thead><tr><th>{t('csv.date')}</th><th>{t('csv.revenue')}</th></tr></thead>
                 <tbody>
                   {preview.preview.map((r) => (
                     <tr key={r.date}><td>{r.date}</td><td>{money(r.revenue)}</td></tr>
@@ -152,10 +155,15 @@ export default function CsvUpload() {
           )}
         </div>
         <div className="card">
-          <h2>იმპორტის ისტორია</h2>
+          <h2>{t('csv.history')}</h2>
           <table className="table">
             <thead>
-              <tr><th>ფაილი</th><th>სტატუსი</th><th>რიგები</th><th>დრო</th></tr>
+              <tr>
+                <th>{t('csv.file')}</th>
+                <th>{t('csv.status')}</th>
+                <th>{t('csv.rows')}</th>
+                <th>{t('csv.time')}</th>
+              </tr>
             </thead>
             <tbody>
               {history.map((h) => (
@@ -163,10 +171,10 @@ export default function CsvUpload() {
                   <td>{h.filename}</td>
                   <td>{h.status}</td>
                   <td>{h.rows_imported}</td>
-                  <td>{new Date(h.created_at).toLocaleString()}</td>
+                  <td>{new Date(h.created_at).toLocaleString(lang === 'ka' ? 'ka-GE' : 'en-US')}</td>
                 </tr>
               ))}
-              {!history.length && <tr><td colSpan="4" className="muted">იმპორტები არ არის</td></tr>}
+              {!history.length && <tr><td colSpan="4" className="muted">{t('csv.empty')}</td></tr>}
             </tbody>
           </table>
         </div>

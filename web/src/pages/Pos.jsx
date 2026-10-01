@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api, money } from '../api'
+import { api } from '../api'
 import { useAuth } from '../auth'
+import { useI18n } from '../i18n'
 
 export default function Pos() {
   const { refresh } = useAuth()
+  const { t, money } = useI18n()
   const [products, setProducts] = useState([])
   const [cart, setCart] = useState([])
   const [error, setError] = useState('')
@@ -77,29 +79,31 @@ export default function Pos() {
     }
   }
 
+  const methodLabel = (method) => (method === 'card' ? t('common.card') : t('common.cash'))
+
   return (
     <>
       <div className="topbar">
         <div>
-          <h1>POS / სალარო</h1>
-          <p className="muted">შეეხეთ პროდუქტს · აირჩიეთ ნაღდი ან ბარათი</p>
+          <h1>{t('pos.title')}</h1>
+          <p className="muted">{t('pos.subtitle')}</p>
         </div>
       </div>
       {error && <div className="error">{error}</div>}
       {success && (
         <div className="success">
-          გაყიდვა #{success.id} შენახულია · {money(success.total)} · {success.payment_method}
+          {t('pos.sold', { id: success.id, total: money(success.total), method: methodLabel(success.payment_method) })}
         </div>
       )}
       <div className="pos-layout">
         <div className="card">
           <input
-            placeholder="ძიება..."
+            placeholder={t('pos.search')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             style={{ width: '100%', marginBottom: '1rem', padding: '0.7rem', borderRadius: 8, border: '1px solid #cbd5e1' }}
           />
-          {!filtered.length && <p className="muted">პროდუქტები არ არის. დაამატეთ პროდუქტების გვერდზე.</p>}
+          {!filtered.length && <p className="muted">{t('pos.emptyProducts')}</p>}
           <div className="product-grid">
             {filtered.map((p) => (
               <button key={p.id} type="button" className="product-tile" onClick={() => add(p)}>
@@ -111,8 +115,8 @@ export default function Pos() {
           </div>
         </div>
         <div className="card">
-          <h2>მიმდინარე შეკვეთა</h2>
-          {!cart.length && <p className="muted">კალათა ცარიელია</p>}
+          <h2>{t('pos.cart')}</h2>
+          {!cart.length && <p className="muted">{t('pos.emptyCart')}</p>}
           {cart.map((item) => (
             <div className="cart-line" key={item.product_id}>
               <div>
@@ -128,15 +132,15 @@ export default function Pos() {
             </div>
           ))}
           <div style={{ marginTop: '1rem' }} className="row">
-            <span className="label">ჯამი</span>
+            <span className="label">{t('pos.total')}</span>
             <span className="metric" style={{ marginLeft: 'auto' }}>{money(total)}</span>
           </div>
           <div className="row" style={{ marginTop: '1rem' }}>
             <button className="btn mint" style={{ flex: 1 }} disabled={!cart.length || busy} onClick={() => charge('cash')}>
-              ნაღდი
+              {t('common.cash')}
             </button>
             <button className="btn" style={{ flex: 1 }} disabled={!cart.length || busy} onClick={() => charge('card')}>
-              ბარათი
+              {t('common.card')}
             </button>
           </div>
         </div>
