@@ -36,6 +36,12 @@ def update_settings():
             user.business.business_type = b["business_type"]
         if "city" in b and b["city"]:
             user.business.city = b["city"]
+        if "lens_expected_receipts_per_day" in b and b["lens_expected_receipts_per_day"] is not None:
+            try:
+                n = int(b["lens_expected_receipts_per_day"])
+                user.business.lens_expected_receipts_per_day = max(1, min(n, 200))
+            except (TypeError, ValueError):
+                pass
 
     db.session.commit()
     payload = {"user": user.to_dict()}

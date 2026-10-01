@@ -1,4 +1,15 @@
-from . import alerts, auth, csv_import, expenses, forecast, onboarding, products, sales, settings
+from . import (
+    alerts,
+    auth,
+    csv_import,
+    expenses,
+    forecast,
+    lens,
+    onboarding,
+    products,
+    sales,
+    settings,
+)
 
 __all__ = [
     "alerts",
@@ -6,6 +17,7 @@ __all__ = [
     "csv_import",
     "expenses",
     "forecast",
+    "lens",
     "onboarding",
     "products",
     "sales",

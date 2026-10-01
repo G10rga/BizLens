@@ -271,6 +271,50 @@ a { color: inherit; }
   text-align: center;
   background: #f8fafc;
 }
+.lens-drop input[type="file"] { margin-top: 0.75rem; }
+.lens-preview {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  margin-top: 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #0f172a08;
+}
+.ocr-text {
+  white-space: pre-wrap;
+  font-size: 0.78rem;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.75rem;
+  max-height: 220px;
+  overflow: auto;
+  color: #334155;
+}
+.completeness-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 56px;
+  margin-top: 0.85rem;
+}
+.completeness-bar {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: #ecfdf5;
+  border-radius: 4px 4px 2px 2px;
+  overflow: hidden;
+}
+.completeness-bar > div {
+  width: 100%;
+  background: linear-gradient(180deg, #10b981, #1b4332);
+  border-radius: 3px 3px 0 0;
+  min-height: 4px;
+}
 .chart-wrap { height: 320px; }
 
 @media (max-width: 900px) {
