@@ -17,8 +17,10 @@ from ..models import Product, ReceiptCapture, Sale, SaleItem
 from ..services.lens_completeness import completeness_report
 from ..services.receipt_ocr import (
     combine_sold_at,
+    compress_for_ocr,
+    empty_manual_parse,
     ocr_status,
-    parse_image,
+    parse_image_safe,
     parse_receipt_text,
     sample_receipt_text,
 )
@@ -138,55 +140,99 @@ def scan_demo(business):
 def scan(business):
     """Upload a receipt photo (or raw_text) and run OCR + parse into a draft capture."""
     raw_text_override = (request.form.get("raw_text") or "").strip()
+    skip_ocr = (request.form.get("skip_ocr") or "").lower() in {"1", "true", "yes"}
     file = request.files.get("file")
     image_bytes = b""
     filename = ""
     saved_path = None
 
-    if file and file.filename:
-        filename = secure_filename(file.filename) or "receipt.jpg"
-        image_bytes = file.read()
-        if image_bytes:
-            from datetime import datetime as _dt
-
-            saved_path = _lens_dir(business.id) / f"{business.id}_{filename}"
-            if saved_path.exists():
-                saved_path = saved_path.with_name(
-                    f"{saved_path.stem}_{_dt.utcnow().strftime('%H%M%S')}{saved_path.suffix}"
-                )
-            saved_path.write_bytes(image_bytes)
-
-    if raw_text_override:
-        parsed = parse_receipt_text(raw_text_override)
-        parsed["raw_text"] = raw_text_override
-        parsed["ocr_engine"] = "manual_text"
-    elif image_bytes:
-        parsed = parse_image(image_bytes, filename=filename or "receipt.jpg")
-    else:
-        return jsonify({"error": "file or raw_text is required"}), 400
-
     try:
-        rdate = date.fromisoformat(parsed["receipt_date"]) if parsed.get("receipt_date") else date.today()
-    except ValueError:
-        rdate = date.today()
+        if file and file.filename:
+            filename = secure_filename(file.filename) or "receipt.jpg"
+            image_bytes = file.read()
+            if len(image_bytes) > 12 * 1024 * 1024:
+                return jsonify({"error": "Image too large (max 12MB). Take a closer photo."}), 400
+            if image_bytes:
+                from datetime import datetime as _dt
 
-    cap = ReceiptCapture(
-        business_id=business.id,
-        image_path=str(saved_path) if saved_path else None,
-        raw_text=parsed.get("raw_text") or "",
-        receipt_date=rdate,
-        receipt_time=parsed.get("receipt_time"),
-        total=parsed.get("total"),
-        payment_method=parsed.get("payment_method") or "unknown",
-        tin=parsed.get("tin"),
-        items_json=json.dumps(parsed.get("items") or [], ensure_ascii=False),
-        parse_confidence=float(parsed.get("parse_confidence") or 0),
-        ocr_engine=parsed.get("ocr_engine"),
-        status="draft",
-    )
-    db.session.add(cap)
-    db.session.commit()
-    return jsonify({"capture": cap.to_dict(), "parsed": parsed})
+                # Store a compressed copy — keeps disk/memory down
+                to_store = compress_for_ocr(image_bytes, max_side=1600)
+                saved_path = _lens_dir(business.id) / f"{business.id}_{Path(filename).stem}.jpg"
+                if saved_path.exists():
+                    saved_path = saved_path.with_name(
+                        f"{saved_path.stem}_{_dt.utcnow().strftime('%H%M%S')}.jpg"
+                    )
+                saved_path.write_bytes(to_store)
+                image_bytes = to_store
+
+        if raw_text_override:
+            parsed = parse_receipt_text(raw_text_override)
+            parsed["raw_text"] = raw_text_override
+            parsed["ocr_engine"] = "manual_text"
+        elif image_bytes:
+            parsed = parse_image_safe(
+                image_bytes,
+                filename=filename or "receipt.jpg",
+                timeout_sec=50,
+                skip_ocr=skip_ocr,
+            )
+        else:
+            return jsonify({"error": "file or raw_text is required"}), 400
+
+        try:
+            rdate = (
+                date.fromisoformat(parsed["receipt_date"])
+                if parsed.get("receipt_date")
+                else date.today()
+            )
+        except ValueError:
+            rdate = date.today()
+
+        cap = ReceiptCapture(
+            business_id=business.id,
+            image_path=str(saved_path) if saved_path else None,
+            raw_text=parsed.get("raw_text") or "",
+            receipt_date=rdate,
+            receipt_time=parsed.get("receipt_time"),
+            total=parsed.get("total"),
+            payment_method=parsed.get("payment_method") or "unknown",
+            tin=parsed.get("tin"),
+            items_json=json.dumps(parsed.get("items") or [], ensure_ascii=False),
+            parse_confidence=float(parsed.get("parse_confidence") or 0),
+            ocr_engine=parsed.get("ocr_engine"),
+            status="draft",
+        )
+        db.session.add(cap)
+        db.session.commit()
+        return jsonify({"capture": cap.to_dict(), "parsed": parsed})
+    except Exception as exc:  # noqa: BLE001
+        # Last resort — never let Lens take down the site with a 502
+        db.session.rollback()
+        parsed = empty_manual_parse(
+            f"Server recovered after OCR fault ({exc.__class__.__name__}) — enter total manually"
+        )
+        try:
+            rdate = date.today()
+            cap = ReceiptCapture(
+                business_id=business.id,
+                image_path=str(saved_path) if saved_path else None,
+                raw_text="",
+                receipt_date=rdate,
+                receipt_time=None,
+                total=None,
+                payment_method="cash",
+                tin=None,
+                items_json="[]",
+                parse_confidence=0.0,
+                ocr_engine="manual",
+                status="draft",
+            )
+            db.session.add(cap)
+            db.session.commit()
+            return jsonify({"capture": cap.to_dict(), "parsed": parsed, "recovered": True})
+        except Exception as exc2:  # noqa: BLE001
+            db.session.rollback()
+            return jsonify({"error": f"Scan failed: {exc2}"}), 500
 
 
 @bp.post("/confirm")
