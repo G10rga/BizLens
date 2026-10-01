@@ -37,8 +37,8 @@ export async function api(path, options = {}) {
   return data
 }
 
-export const money = (n) =>
-  `${Number(n || 0).toLocaleString('en-US', {
+export const money = (n, lang = 'ka') =>
+  `${Number(n || 0).toLocaleString(lang === 'ka' ? 'ka-GE' : 'en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} ₾`

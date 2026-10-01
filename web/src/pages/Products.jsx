@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { api, money } from '../api'
+import { api } from '../api'
+import { useI18n } from '../i18n'
 
 const empty = { name: '', price: '', category: '' }
 
 export default function Products() {
+  const { t, money } = useI18n()
   const [products, setProducts] = useState([])
   const [form, setForm] = useState(empty)
   const [editing, setEditing] = useState(null)
@@ -58,42 +60,42 @@ export default function Products() {
     <>
       <div className="topbar">
         <div>
-          <h1>პროდუქტები</h1>
-          <p className="muted">{active.length} აქტიური პროდუქტი</p>
+          <h1>{t('products.title')}</h1>
+          <p className="muted">{t('products.activeCount', { count: active.length })}</p>
         </div>
       </div>
       {error && <div className="error">{error}</div>}
       <div className="grid grid-2">
         <form className="card" onSubmit={save}>
-          <h2>{editing ? 'რედაქტირება' : 'ახალი პროდუქტი'}</h2>
+          <h2>{editing ? t('products.editProduct') : t('products.newProduct')}</h2>
           <div className="field">
-            <label>სახელი</label>
+            <label>{t('products.name')}</label>
             <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </div>
           <div className="field">
-            <label>ფასი ₾</label>
+            <label>{t('products.price')}</label>
             <input required type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
           </div>
           <div className="field">
-            <label>კატეგორია</label>
+            <label>{t('products.category')}</label>
             <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
           </div>
           <div className="row">
-            <button className="btn" disabled={busy}>{busy ? '...' : 'შენახვა'}</button>
+            <button className="btn" disabled={busy}>{busy ? t('common.saving') : t('common.save')}</button>
             {editing && (
               <button type="button" className="btn ghost" onClick={() => { setEditing(null); setForm(empty) }}>
-                გაუქმება
+                {t('common.cancel')}
               </button>
             )}
           </div>
         </form>
         <div className="card">
-          <h2>კატალოგი</h2>
+          <h2>{t('products.catalog')}</h2>
           <table className="table">
             <thead>
               <tr>
-                <th>სახელი</th>
-                <th>ფასი</th>
+                <th>{t('products.name')}</th>
+                <th>{t('products.priceCol')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -106,8 +108,8 @@ export default function Products() {
                   </td>
                   <td>{money(p.price)}</td>
                   <td className="row">
-                    <button className="btn ghost" type="button" onClick={() => startEdit(p)}>Edit</button>
-                    <button className="btn danger" type="button" onClick={() => remove(p.id)}>Delete</button>
+                    <button className="btn ghost" type="button" onClick={() => startEdit(p)}>{t('common.edit')}</button>
+                    <button className="btn danger" type="button" onClick={() => remove(p.id)}>{t('common.delete')}</button>
                   </td>
                 </tr>
               ))}
