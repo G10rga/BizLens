@@ -56,19 +56,21 @@ def sample_receipt_text() -> str:
 
 
 def ocr_status() -> dict[str, Any]:
-    """Which free/paid OCR backends are available right now."""
+    """Which OCR backends are available (local-first, no API keys required)."""
+    rapid_ok = _rapidocr_available()
     tess_ok = _tesseract_available()
-    ocr_space_key = os.getenv("OCR_SPACE_API_KEY", "helloworld").strip()
+    space_key = os.getenv("OCR_SPACE_API_KEY", "").strip()
     return {
+        "rapidocr": rapid_ok,
         "tesseract": tess_ok,
-        "ocr_space": bool(ocr_space_key),
-        "ocr_space_key_set": bool(os.getenv("OCR_SPACE_API_KEY", "").strip()),
+        "ocr_space": bool(space_key) and space_key.lower() not in {"off", "false", "0"},
+        "ocr_space_key_set": bool(space_key),
         "openai_vision": bool(os.getenv("OPENAI_API_KEY", "").strip()),
-        "preferred_order": ["tesseract", "ocr_space", "openai_vision"],
+        "preferred_order": ["rapidocr", "tesseract", "ocr_space", "openai_vision"],
+        "mode": "local",
         "note": (
-            "Free path: Tesseract (local) or OCR.space (cloud). "
-            "Get a free OCR.space key at https://ocr.space/ocrapi — "
-            "or leave unset to use the public helloworld demo key (rate-limited)."
+            "Local OCR: RapidOCR (pip only, no API key) then Tesseract if installed. "
+            "Cloud OCR is off unless you explicitly set OCR_SPACE_API_KEY / OPENAI_API_KEY."
         ),
     }
 
@@ -76,12 +78,17 @@ def ocr_status() -> dict[str, Any]:
 def extract_text_from_image(image_bytes: bytes, filename: str = "receipt.jpg") -> tuple[str, str]:
     """
     Returns (raw_text, engine_name).
-    Free-first: Tesseract → OCR.space → optional OpenAI Vision → empty.
+    Local-first, no keys: RapidOCR → Tesseract → (optional cloud if keys set).
     """
+    rapid = _rapidocr_extract(image_bytes)
+    if rapid:
+        return rapid, "rapidocr"
+
     tess = _tesseract_extract(image_bytes)
     if tess:
         return tess, "tesseract"
 
+    # Cloud only when explicitly configured — never call APIs by default
     space = _ocr_space_extract(image_bytes, filename)
     if space:
         return space, "ocr_space"
@@ -166,15 +173,78 @@ def parse_image(image_bytes: bytes, filename: str = "receipt.jpg") -> dict[str, 
     parsed["ocr_engine"] = engine
     if engine == "none":
         parsed["warnings"] = list(parsed.get("warnings") or []) + [
-            "No OCR text yet — enter total manually, or set OCR_SPACE_API_KEY (free), "
-            "or install Tesseract"
+            "Local OCR found no text — enter the total manually, or re-photo the receipt "
+            "in good light (flat, fill the frame). pip install rapidocr-onnxruntime"
         ]
         parsed["parse_confidence"] = min(float(parsed.get("parse_confidence") or 0), 0.1)
-    elif engine == "ocr_space":
+    elif engine in {"rapidocr", "tesseract"}:
         parsed["warnings"] = list(parsed.get("warnings") or []) + [
-            "Parsed with free OCR.space — review totals before confirming"
+            f"Parsed locally with {engine} — review before confirming"
         ]
     return parsed
+
+
+_RAPIDOCR_ENGINE = None
+
+
+def _rapidocr_available() -> bool:
+    try:
+        from rapidocr_onnxruntime import RapidOCR  # noqa: F401
+
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _get_rapidocr():
+    global _RAPIDOCR_ENGINE
+    if _RAPIDOCR_ENGINE is None:
+        from rapidocr_onnxruntime import RapidOCR
+
+        _RAPIDOCR_ENGINE = RapidOCR()
+    return _RAPIDOCR_ENGINE
+
+
+def _preprocess_receipt_image(image_bytes: bytes):
+    """Upscale / contrast boost — helps phone photos of thermal receipts."""
+    from io import BytesIO
+
+    import numpy as np
+    from PIL import Image, ImageOps, ImageFilter
+
+    img = Image.open(BytesIO(image_bytes))
+    if img.mode not in {"RGB", "L"}:
+        img = img.convert("RGB")
+    # Upscale small phone crops
+    w, h = img.size
+    if max(w, h) < 1200:
+        scale = 1200 / max(w, h)
+        img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+    # Autocontrast helps faded thermal paper
+    img = ImageOps.autocontrast(img, cutoff=2)
+    img = img.filter(ImageFilter.SHARPEN)
+    return np.array(img.convert("RGB"))
+
+
+def _rapidocr_extract(image_bytes: bytes) -> str:
+    """Fully local OCR via onnxruntime — no API key, no system binary."""
+    try:
+        engine = _get_rapidocr()
+        arr = _preprocess_receipt_image(image_bytes)
+        result, _elapse = engine(arr)
+        if not result:
+            return ""
+        # result items: [box, text, confidence]
+        lines = []
+        for item in result:
+            if not item or len(item) < 2:
+                continue
+            text = str(item[1]).strip()
+            if text:
+                lines.append(text)
+        return "\n".join(lines).strip()
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _tesseract_available() -> bool:
@@ -190,12 +260,10 @@ def _tesseract_available() -> bool:
 
 def _ocr_space_extract(image_bytes: bytes, filename: str) -> str:
     """
-    Free cloud OCR via https://ocr.space (no credit card for free tier).
-    Uses OCR_SPACE_API_KEY, or the public demo key helloworld (rate-limited).
+    Optional cloud OCR — only if OCR_SPACE_API_KEY is explicitly set.
     """
-    # Allow disabling: OCR_SPACE_API_KEY=off
-    key = os.getenv("OCR_SPACE_API_KEY", "helloworld").strip()
-    if not key or key.lower() in {"off", "false", "0", "disabled"}:
+    key = os.getenv("OCR_SPACE_API_KEY", "").strip()
+    if not key or key.lower() in {"off", "false", "0", "disabled", "helloworld"}:
         return ""
 
     try:
@@ -310,27 +378,20 @@ def _openai_vision_extract(image_bytes: bytes, filename: str) -> str:
 
 def _tesseract_extract(image_bytes: bytes) -> str:
     try:
-        from io import BytesIO
-
         import pytesseract
         from PIL import Image
 
-        img = Image.open(BytesIO(image_bytes))
-        if img.mode not in {"RGB", "L"}:
-            img = img.convert("RGB")
-        text = pytesseract.image_to_string(img, lang="eng+kat")
+        arr = _preprocess_receipt_image(image_bytes)
+        img = Image.fromarray(arr)
+        # Receipt-style: sparse text, single column
+        config = "--psm 6"
+        try:
+            text = pytesseract.image_to_string(img, lang="eng+kat", config=config)
+        except Exception:  # noqa: BLE001
+            text = pytesseract.image_to_string(img, lang="eng", config=config)
         return (text or "").strip()
     except Exception:  # noqa: BLE001
-        try:
-            from io import BytesIO
-
-            import pytesseract
-            from PIL import Image
-
-            img = Image.open(BytesIO(image_bytes))
-            return pytesseract.image_to_string(img).strip()
-        except Exception:  # noqa: BLE001
-            return ""
+        return ""
 
 
 def _parse_date(text: str) -> date | None:
@@ -350,21 +411,23 @@ def _parse_date(text: str) -> date | None:
             except ValueError:
                 pass
 
-    for pattern, fmt in (
-        (r"(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})", "%Y-%m-%d"),
-        (r"(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})", "%d-%m-%Y"),
-    ):
-        m = re.search(pattern, text)
-        if not m:
-            continue
-        raw = m.group(1).replace("/", "-").replace(".", "-")
-        parts = raw.split("-")
+    # Georgian fiscal style: 01.10.2026 or 01/10/2026
+    m = re.search(r"\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b", text)
+    if m:
+        a, b, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        # Prefer DMY (common in GE); fall back to MDY if invalid
+        for day, month in ((a, b), (b, a)):
+            try:
+                return date(y, month, day)
+            except ValueError:
+                continue
+
+    m = re.search(r"\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b", text)
+    if m:
         try:
-            if fmt == "%Y-%m-%d":
-                return date(int(parts[0]), int(parts[1]), int(parts[2]))
-            return date(int(parts[2]), int(parts[1]), int(parts[0]))
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
         except ValueError:
-            continue
+            pass
 
     # ISO-ish datetime
     m = re.search(r"(\d{4}-\d{2}-\d{2})", text)

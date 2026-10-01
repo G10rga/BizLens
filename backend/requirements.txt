@@ -20,5 +20,8 @@ psycopg2-binary>=2.9
 # Forecasting (Python 3.11–3.12 recommended)
 prophet>=1.1.5
 
-# Lens Mode OCR (system Tesseract binary optional on host)
+# Lens Mode — local OCR (no API keys)
+rapidocr-onnxruntime>=1.3.24
+onnxruntime>=1.17.0
+# Optional extra local engine (needs OS Tesseract install):
 pytesseract>=0.3.10

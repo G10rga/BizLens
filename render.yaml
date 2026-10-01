@@ -33,6 +33,4 @@ services:
         fromDatabase:
           name: bizlens-db
           property: connectionString
-      # Free Lens OCR (https://ocr.space/ocrapi) — optional; demo key used if unset
-      # - key: OCR_SPACE_API_KEY
-      #   sync: false
+      # Lens OCR is local (RapidOCR) — no keys required
