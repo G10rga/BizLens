@@ -1,0 +1,2 @@
+# Root requirements for Render / PaaS (points at backend)
+-r backend/requirements.txt

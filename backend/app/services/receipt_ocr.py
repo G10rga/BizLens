@@ -55,18 +55,47 @@ def sample_receipt_text() -> str:
     return SAMPLE_RECEIPT_TEXT.strip()
 
 
+def ocr_status() -> dict[str, Any]:
+    """Which OCR backends are available (local-first, no API keys required)."""
+    rapid_ok = _rapidocr_available()
+    tess_ok = _tesseract_available()
+    space_key = os.getenv("OCR_SPACE_API_KEY", "").strip()
+    return {
+        "rapidocr": rapid_ok,
+        "tesseract": tess_ok,
+        "ocr_space": bool(space_key) and space_key.lower() not in {"off", "false", "0"},
+        "ocr_space_key_set": bool(space_key),
+        "openai_vision": bool(os.getenv("OPENAI_API_KEY", "").strip()),
+        "preferred_order": ["rapidocr", "tesseract", "ocr_space", "openai_vision"],
+        "mode": "local",
+        "note": (
+            "Local OCR: RapidOCR (pip only, no API key) then Tesseract if installed. "
+            "Cloud OCR is off unless you explicitly set OCR_SPACE_API_KEY / OPENAI_API_KEY."
+        ),
+    }
+
+
 def extract_text_from_image(image_bytes: bytes, filename: str = "receipt.jpg") -> tuple[str, str]:
     """
     Returns (raw_text, engine_name).
-    Tries OpenAI Vision → Tesseract → empty.
+    Local-first, no keys: RapidOCR → Tesseract → (optional cloud if keys set).
     """
-    openai_text = _openai_vision_extract(image_bytes, filename)
-    if openai_text:
-        return openai_text, "openai_vision"
+    rapid = _rapidocr_extract(image_bytes)
+    if rapid:
+        return rapid, "rapidocr"
 
     tess = _tesseract_extract(image_bytes)
     if tess:
         return tess, "tesseract"
+
+    # Cloud only when explicitly configured — never call APIs by default
+    space = _ocr_space_extract(image_bytes, filename)
+    if space:
+        return space, "ocr_space"
+
+    openai_text = _openai_vision_extract(image_bytes, filename)
+    if openai_text:
+        return openai_text, "openai_vision"
 
     return "", "none"
 
@@ -92,6 +121,18 @@ def parse_receipt_text(raw_text: str) -> dict[str, Any]:
     payment = _parse_payment(text)
     tin = _parse_tin(text)
     items = _parse_items(text)
+
+    # Free OCR often drops the "Total" line — fall back to sum of items
+    if total is None and items:
+        total = round(sum(float(i.get("line_total") or 0) for i in items), 2)
+        warnings.append("Total inferred from line items — please verify")
+    elif total is not None and items:
+        items_sum = round(sum(float(i.get("line_total") or 0) for i in items), 2)
+        if items_sum > 0 and abs(items_sum - total) > 0.05 and items_sum > total:
+            # OCR sometimes picks a line price as "total"; prefer items sum when larger
+            if total <= max(float(i.get("line_total") or 0) for i in items) + 0.001:
+                warnings.append(f"Total looked low ({total}); using items sum {items_sum}")
+                total = items_sum
 
     score = 0.15
     if receipt_date:
@@ -125,17 +166,266 @@ def parse_receipt_text(raw_text: str) -> dict[str, Any]:
     }
 
 
+def empty_manual_parse(warning: str | None = None) -> dict[str, Any]:
+    """Safe draft when OCR fails/crashes — user enters total manually."""
+    warnings = [
+        warning
+        or "OCR unavailable — enter the receipt total manually, then confirm"
+    ]
+    return {
+        "receipt_date": date.today().isoformat(),
+        "receipt_time": None,
+        "total": None,
+        "payment_method": "cash",
+        "tin": None,
+        "items": [],
+        "parse_confidence": 0.0,
+        "warnings": warnings,
+        "raw_text": "",
+        "ocr_engine": "manual",
+    }
+
+
+def compress_for_ocr(image_bytes: bytes, max_side: int = 1280) -> bytes:
+    """Shrink phone photos so OCR doesn't OOM (common cause of HTTP 502)."""
+    from io import BytesIO
+
+    from PIL import Image, ImageOps
+
+    try:
+        img = Image.open(BytesIO(image_bytes))
+        img = ImageOps.exif_transpose(img)
+        if img.mode not in {"RGB", "L"}:
+            img = img.convert("RGB")
+        else:
+            img = img.convert("RGB")
+        w, h = img.size
+        longest = max(w, h)
+        if longest > max_side:
+            scale = max_side / longest
+            img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+        out = BytesIO()
+        img.save(out, format="JPEG", quality=85, optimize=True)
+        return out.getvalue()
+    except Exception:  # noqa: BLE001
+        return image_bytes
+
+
 def parse_image(image_bytes: bytes, filename: str = "receipt.jpg") -> dict[str, Any]:
+    image_bytes = compress_for_ocr(image_bytes)
     raw, engine = extract_text_from_image(image_bytes, filename)
     parsed = parse_receipt_text(raw)
     parsed["raw_text"] = raw
     parsed["ocr_engine"] = engine
     if engine == "none":
         parsed["warnings"] = list(parsed.get("warnings") or []) + [
-            "OCR engine unavailable — use Demo scan or enter fields manually"
+            "Local OCR found no text — enter the total manually, or re-photo the receipt "
+            "in good light (flat, fill the frame)."
         ]
         parsed["parse_confidence"] = min(float(parsed.get("parse_confidence") or 0), 0.1)
+    elif engine in {"rapidocr", "tesseract"}:
+        parsed["warnings"] = list(parsed.get("warnings") or []) + [
+            f"Parsed locally with {engine} — review before confirming"
+        ]
     return parsed
+
+
+def parse_image_safe(
+    image_bytes: bytes,
+    filename: str = "receipt.jpg",
+    *,
+    timeout_sec: int = 45,
+    skip_ocr: bool = False,
+) -> dict[str, Any]:
+    """
+    OCR in a child process so crashes/OOM return a manual draft instead of HTTP 502.
+    """
+    if skip_ocr:
+        return empty_manual_parse("OCR skipped — enter total manually")
+
+    import subprocess
+    import sys
+    import tempfile
+    from pathlib import Path
+
+    image_bytes = compress_for_ocr(image_bytes)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp.write(image_bytes)
+            tmp_path = tmp.name
+
+        # Run as module from backend/ so `app.*` imports resolve
+        backend_dir = str(Path(__file__).resolve().parents[2])
+        proc = subprocess.run(
+            [sys.executable, "-m", "app.services.receipt_ocr_worker", tmp_path],
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+            cwd=backend_dir,
+            env={**os.environ, "OMP_NUM_THREADS": "1"},
+        )
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "OCR worker failed").strip()
+            return empty_manual_parse(
+                f"OCR worker failed — enter total manually. ({err[:180]})"
+            )
+        line = (proc.stdout or "").strip().splitlines()[-1] if proc.stdout else ""
+        parsed = json.loads(line)
+        if "error" in parsed and "ocr_engine" not in parsed:
+            return empty_manual_parse(str(parsed.get("error")))
+        return parsed
+    except subprocess.TimeoutExpired:
+        return empty_manual_parse(
+            "OCR timed out — enter the total manually (try a closer, sharper photo)"
+        )
+    except Exception as exc:  # noqa: BLE001
+        return empty_manual_parse(f"OCR error — enter total manually ({exc.__class__.__name__})")
+    finally:
+        if tmp_path:
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+_RAPIDOCR_ENGINE = None
+
+
+def _rapidocr_available() -> bool:
+    try:
+        from rapidocr_onnxruntime import RapidOCR  # noqa: F401
+
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _get_rapidocr():
+    global _RAPIDOCR_ENGINE
+    if _RAPIDOCR_ENGINE is None:
+        from rapidocr_onnxruntime import RapidOCR
+
+        _RAPIDOCR_ENGINE = RapidOCR()
+    return _RAPIDOCR_ENGINE
+
+
+def _preprocess_receipt_image(image_bytes: bytes):
+    """Contrast boost; keep size modest to avoid OOM on phone photos."""
+    from io import BytesIO
+
+    import numpy as np
+    from PIL import Image, ImageOps, ImageFilter
+
+    img = Image.open(BytesIO(image_bytes))
+    img = ImageOps.exif_transpose(img)
+    if img.mode not in {"RGB", "L"}:
+        img = img.convert("RGB")
+    else:
+        img = img.convert("RGB")
+    w, h = img.size
+    longest = max(w, h)
+    # Cap size — large phone images were crashing workers (HTTP 502)
+    if longest > 1280:
+        scale = 1280 / longest
+        img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+    elif longest < 900:
+        scale = 900 / longest
+        img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+    img = ImageOps.autocontrast(img, cutoff=2)
+    img = img.filter(ImageFilter.SHARPEN)
+    return np.array(img)
+
+
+def _rapidocr_extract(image_bytes: bytes) -> str:
+    """Fully local OCR via onnxruntime — no API key, no system binary."""
+    try:
+        engine = _get_rapidocr()
+        arr = _preprocess_receipt_image(image_bytes)
+        result, _elapse = engine(arr)
+        if not result:
+            return ""
+        # result items: [box, text, confidence]
+        lines = []
+        for item in result:
+            if not item or len(item) < 2:
+                continue
+            text = str(item[1]).strip()
+            if text:
+                lines.append(text)
+        return "\n".join(lines).strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _tesseract_available() -> bool:
+    try:
+        import pytesseract
+        from PIL import Image  # noqa: F401
+
+        pytesseract.get_tesseract_version()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _ocr_space_extract(image_bytes: bytes, filename: str) -> str:
+    """
+    Optional cloud OCR — only if OCR_SPACE_API_KEY is explicitly set.
+    """
+    key = os.getenv("OCR_SPACE_API_KEY", "").strip()
+    if not key or key.lower() in {"off", "false", "0", "disabled", "helloworld"}:
+        return ""
+
+    try:
+        import urllib.error
+        import urllib.parse
+        import urllib.request
+
+        mime = "image/jpeg"
+        lower = (filename or "").lower()
+        if lower.endswith(".png"):
+            mime = "image/png"
+        elif lower.endswith(".webp"):
+            mime = "image/webp"
+        elif lower.endswith(".gif"):
+            mime = "image/gif"
+
+        b64 = base64.b64encode(image_bytes).decode("ascii")
+        # Prefer base64 endpoint — simpler than multipart without extra deps
+        form = urllib.parse.urlencode(
+            {
+                "apikey": key,
+                "language": os.getenv("OCR_SPACE_LANGUAGE", "eng"),
+                "isOverlayRequired": "false",
+                "OCREngine": os.getenv("OCR_SPACE_ENGINE", "2"),
+                "scale": "true",
+                "base64Image": f"data:{mime};base64,{b64}",
+            }
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            "https://api.ocr.space/parse/image",
+            data=form,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        if data.get("IsErroredOnProcessing"):
+            err = data.get("ErrorMessage") or data.get("ErrorDetails") or "ocr.space error"
+            if isinstance(err, list):
+                err = "; ".join(str(x) for x in err)
+            # Soft-fail so other engines / manual entry can continue
+            return ""
+
+        results = data.get("ParsedResults") or []
+        if not results:
+            return ""
+        text = (results[0].get("ParsedText") or "").strip()
+        return text
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _openai_vision_extract(image_bytes: bytes, filename: str) -> str:
@@ -199,27 +489,20 @@ def _openai_vision_extract(image_bytes: bytes, filename: str) -> str:
 
 def _tesseract_extract(image_bytes: bytes) -> str:
     try:
-        from io import BytesIO
-
         import pytesseract
         from PIL import Image
 
-        img = Image.open(BytesIO(image_bytes))
-        if img.mode not in {"RGB", "L"}:
-            img = img.convert("RGB")
-        text = pytesseract.image_to_string(img, lang="eng+kat")
+        arr = _preprocess_receipt_image(image_bytes)
+        img = Image.fromarray(arr)
+        # Receipt-style: sparse text, single column
+        config = "--psm 6"
+        try:
+            text = pytesseract.image_to_string(img, lang="eng+kat", config=config)
+        except Exception:  # noqa: BLE001
+            text = pytesseract.image_to_string(img, lang="eng", config=config)
         return (text or "").strip()
     except Exception:  # noqa: BLE001
-        try:
-            from io import BytesIO
-
-            import pytesseract
-            from PIL import Image
-
-            img = Image.open(BytesIO(image_bytes))
-            return pytesseract.image_to_string(img).strip()
-        except Exception:  # noqa: BLE001
-            return ""
+        return ""
 
 
 def _parse_date(text: str) -> date | None:
@@ -239,21 +522,23 @@ def _parse_date(text: str) -> date | None:
             except ValueError:
                 pass
 
-    for pattern, fmt in (
-        (r"(\d{4}[-/.]\d{1,2}[-/.]\d{1,2})", "%Y-%m-%d"),
-        (r"(\d{1,2}[-/.]\d{1,2}[-/.]\d{4})", "%d-%m-%Y"),
-    ):
-        m = re.search(pattern, text)
-        if not m:
-            continue
-        raw = m.group(1).replace("/", "-").replace(".", "-")
-        parts = raw.split("-")
+    # Georgian fiscal style: 01.10.2026 or 01/10/2026
+    m = re.search(r"\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})\b", text)
+    if m:
+        a, b, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        # Prefer DMY (common in GE); fall back to MDY if invalid
+        for day, month in ((a, b), (b, a)):
+            try:
+                return date(y, month, day)
+            except ValueError:
+                continue
+
+    m = re.search(r"\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b", text)
+    if m:
         try:
-            if fmt == "%Y-%m-%d":
-                return date(int(parts[0]), int(parts[1]), int(parts[2]))
-            return date(int(parts[2]), int(parts[1]), int(parts[0]))
+            return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
         except ValueError:
-            continue
+            pass
 
     # ISO-ish datetime
     m = re.search(r"(\d{4}-\d{2}-\d{2})", text)
