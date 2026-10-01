@@ -108,9 +108,21 @@ Demo login: `demo@bizlens.ge` / `demo1234` (when `DEMO_SEED=true`)
 | Setting | Value |
 |---------|--------|
 | Runtime | Python 3 |
-| Build command | `chmod +x bin/render-build.sh && ./bin/render-build.sh` |
-| Start command | `cd backend && gunicorn "run:app" --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180` |
+| Build command | `bash bin/render-build.sh` |
+| Start command | `bash bin/render-start.sh` |
 | Health check | `/api/health` |
+
+If the form rejects scripts, use these equivalents:
+
+**Build**
+```bash
+pip install -r requirements.txt && npm --prefix web ci && npm --prefix web run build
+```
+
+**Start**
+```bash
+gunicorn --chdir backend run:app -b 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180
+```
 
 **Environment variables**
 
