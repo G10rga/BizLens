@@ -10,6 +10,7 @@ import TodaySales from './pages/TodaySales'
 import Dashboard from './pages/Dashboard'
 import Alerts from './pages/Alerts'
 import CsvUpload from './pages/CsvUpload'
+import Lens from './pages/Lens'
 import Expenses from './pages/Expenses'
 import Settings from './pages/Settings'
 
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="alerts" element={<Alerts />} />
         <Route path="csv" element={<CsvUpload />} />
+        <Route path="lens" element={<Lens />} />
         <Route path="expenses" element={<Expenses />} />
         <Route path="settings" element={<Settings />} />
       </Route>

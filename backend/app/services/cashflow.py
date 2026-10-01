@@ -78,11 +78,14 @@ def project_cashflow(
     income_series: List[dict],
     expenses: List[dict],
     suppliers: List[dict],
+    range_widen_factor: float = 1.0,
 ) -> dict:
     """
     income_series items: {date, yhat, yhat_lower, yhat_upper}
     Returns timeline for most_likely / best / worst cash paths.
+    range_widen_factor > 1 widens summary bands (e.g. incomplete Lens capture).
     """
+    widen = max(1.0, min(float(range_widen_factor or 1.0), 2.0))
     end = start_date + timedelta(days=horizon_days - 1)
     expense_map = merge_expense_maps(
         expand_fixed_expenses(expenses, start_date, end),
@@ -138,20 +141,25 @@ def project_cashflow(
     sales_30 = _sales_sum(timeline, 30, "income_likely")
     sales_60 = _sales_sum(timeline, 60, "income_likely")
     sales_90 = _sales_sum(timeline, 90, "income_likely")
+    sales_max_pct = min(0.25, 0.12 * widen)
+    cash_max_pct = min(0.28, 0.15 * widen)
     sales_30_low, sales_30_high = _tight_total_range(
         sales_30,
         _sales_sum(timeline, 30, "income_worst"),
         _sales_sum(timeline, 30, "income_best"),
+        max_pct=sales_max_pct,
     )
     sales_60_low, sales_60_high = _tight_total_range(
         sales_60,
         _sales_sum(timeline, 60, "income_worst"),
         _sales_sum(timeline, 60, "income_best"),
+        max_pct=sales_max_pct,
     )
     sales_90_low, sales_90_high = _tight_total_range(
         sales_90,
         _sales_sum(timeline, 90, "income_worst"),
         _sales_sum(timeline, 90, "income_best"),
+        max_pct=sales_max_pct,
     )
 
     cash_30 = _cash_at(timeline, 29)
@@ -160,13 +168,13 @@ def project_cashflow(
         cash_30,
         _cash_at(timeline, 29, "cash_worst"),
         _cash_at(timeline, 29, "cash_best"),
-        max_pct=0.15,
+        max_pct=cash_max_pct,
     )
     cash_60_low, cash_60_high = _tight_total_range(
         cash_60,
         _cash_at(timeline, 59, "cash_worst"),
         _cash_at(timeline, 59, "cash_best"),
-        max_pct=0.15,
+        max_pct=cash_max_pct,
     )
 
     summary = {
@@ -191,6 +199,7 @@ def project_cashflow(
         "avg_daily_sales_low": round((sales_30_low or 0) / max(n30, 1), 2),
         "avg_daily_sales_high": round((sales_30_high or 0) / max(n30, 1), 2),
         "days_until_danger": _days_until_danger(timeline),
+        "range_widen_factor": round(widen, 3),
     }
 
     return {
