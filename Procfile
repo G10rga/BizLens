@@ -1,1 +1,1 @@
-web: cd backend && gunicorn "run:app" --bind 0.0.0.0:${PORT:-5000} --workers 1 --threads 4 --timeout 180
+web: bash bin/render-start.sh
