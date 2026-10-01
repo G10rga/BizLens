@@ -29,15 +29,18 @@ export default function Lens() {
   const [completeness, setCompleteness] = useState(null)
   const [history, setHistory] = useState([])
   const [expected, setExpected] = useState(10)
+  const [ocrInfo, setOcrInfo] = useState(null)
 
   const loadMeta = async () => {
-    const [comp, hist] = await Promise.all([
+    const [comp, hist, ocr] = await Promise.all([
       api('/lens/completeness?days=14'),
       api('/lens/history'),
+      api('/lens/ocr-status'),
     ])
     setCompleteness(comp)
     setExpected(comp.expected_per_day || 10)
     setHistory(hist.captures || [])
+    setOcrInfo(ocr)
   }
 
   useEffect(() => {
@@ -187,7 +190,7 @@ export default function Lens() {
         <div>
           <h1>Lens Mode</h1>
           <p className="muted">
-            Photograph a fiscal receipt — BizLens extracts the total and records the sale (no full POS needed)
+            Photograph a fiscal receipt — free OCR extracts the total and saves it to your sales database
           </p>
         </div>
         <button className="btn secondary" disabled={busy} onClick={scanDemo}>
@@ -197,6 +200,18 @@ export default function Lens() {
 
       {error && <div className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
+
+      {ocrInfo && (
+        <div className="card" style={{ marginBottom: '1rem', background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+          <strong>Free OCR</strong>
+          <p className="muted" style={{ margin: '0.35rem 0 0' }}>
+            Tesseract: {ocrInfo.tesseract ? 'ready' : 'not installed'} · OCR.space:{' '}
+            {ocrInfo.ocr_space ? (ocrInfo.ocr_space_key_set ? 'API key set' : 'demo key') : 'off'}
+            {ocrInfo.openai_vision ? ' · OpenAI Vision optional' : ''}
+            . Photos use free OCR first — always review before confirm.
+          </p>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
