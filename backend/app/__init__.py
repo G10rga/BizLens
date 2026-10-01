@@ -25,6 +25,12 @@ def create_app(config_object=Config):
     app = Flask(__name__, static_folder=None)
     app.config.from_object(config_object)
 
+    # HTTPS / correct host behind Render's reverse proxy
+    if app.config.get("IS_PRODUCTION"):
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     db.init_app(app)
     jwt.init_app(app)
     CORS(app, resources={r"/api/*": {"origins": app.config.get("CORS_ORIGINS", "*")}})
@@ -40,8 +46,8 @@ def create_app(config_object=Config):
     app.register_blueprint(lens.bp)
     app.register_blueprint(settings.bp)
 
-    dist = app.config["FRONTEND_DIST"]
-    stitch = app.config["STITCH_DIR"]
+    dist = Path(app.config["FRONTEND_DIST"])
+    stitch = Path(app.config["STITCH_DIR"])
     Path(app.config["UPLOAD_DIR"]).mkdir(parents=True, exist_ok=True)
 
     @app.get("/api/health")
@@ -58,6 +64,8 @@ def create_app(config_object=Config):
 
     @app.get("/stitch/<path:filename>")
     def stitch_assets(filename):
+        if not stitch.exists():
+            return jsonify({"error": "Not found"}), 404
         return send_from_directory(stitch, filename)
 
     @app.errorhandler(404)
@@ -67,6 +75,12 @@ def create_app(config_object=Config):
 
         if request.path.startswith("/api/"):
             return jsonify({"error": "Not found"}), 404
+        # Serve other Vite build files (favicon.svg, etc.)
+        rel = request.path.lstrip("/")
+        if rel and ".." not in rel:
+            candidate = dist / rel
+            if candidate.is_file():
+                return send_from_directory(dist, rel)
         if dist.joinpath("index.html").exists():
             return send_from_directory(dist, "index.html")
         return jsonify({"error": "Frontend not built. Run: cd web && npm run build"}), 503

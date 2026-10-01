@@ -88,6 +88,55 @@ Upload a file with `date,revenue` (or Excel Date + Total). Use clear/replace on 
 
 Then open **დაფა** for the forward forecast.
 
+## Deploy on Render
+
+This repo is set up for [Render](https://render.com) (Python 3.11 + Postgres + gunicorn).
+
+### Option A — Blueprint (recommended)
+
+1. Push to GitHub
+2. Render Dashboard → **New** → **Blueprint**
+3. Select this repo (`render.yaml` is at the root)
+4. Apply — creates `bizlens` web service + `bizlens-db` Postgres
+5. Wait for build (npm build + pip install, including Prophet)
+
+App URL will look like `https://bizlens.onrender.com`  
+Demo login: `demo@bizlens.ge` / `demo1234` (when `DEMO_SEED=true`)
+
+### Option B — Manual web service
+
+| Setting | Value |
+|---------|--------|
+| Runtime | Python 3 |
+| Build command | `chmod +x bin/render-build.sh && ./bin/render-build.sh` |
+| Start command | `cd backend && gunicorn "run:app" --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180` |
+| Health check | `/api/health` |
+
+**Environment variables**
+
+| Key | Notes |
+|-----|--------|
+| `SECRET_KEY` | Generate in Render |
+| `JWT_SECRET_KEY` | Generate in Render |
+| `DATABASE_URL` | From Render Postgres (auto if Blueprint) |
+| `DEMO_SEED` | `true` for demo account |
+| `OPENAI_API_KEY` | Optional — Lens photo OCR |
+| `PYTHON_VERSION` | `3.11.11` |
+
+Files involved: `render.yaml`, `Procfile`, `runtime.txt`, `bin/render-build.sh`, root `requirements.txt`.
+
+**Notes**
+- Ephemeral disk: Lens uploads reset on redeploy (sales in Postgres stay)
+- Prophet + first forecast can be slow — gunicorn timeout is 180s
+- Free tier may sleep after idle; first request can be slow
+- Prefer **Python 3.11** (see `runtime.txt`); 3.14 often breaks Prophet
+
 ## Python note
 
-On Python 3.14, Prophet may not install. Forecasting still runs via the Georgian-aware seasonal baseline. For Prophet: Python 3.11/3.12 + `pip install -r backend\requirements-ml.txt`.
+Local Python 3.14 may skip Prophet. Production on Render uses **3.11** via `runtime.txt`. Install everything with:
+
+```powershell
+pip install -r requirements.txt
+# or
+pip install -r backend\requirements.txt
+```
