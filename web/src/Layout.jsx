@@ -4,6 +4,7 @@ import { money } from './api'
 
 const links = [
   { to: '/pos', label: 'POS / გაყიდვები' },
+  { to: '/lens', label: 'Lens Mode' },
   { to: '/products', label: 'პროდუქტები' },
   { to: '/today', label: 'დღევანდელი გაყიდვები' },
   { to: '/dashboard', label: 'დაფა' },
