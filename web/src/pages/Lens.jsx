@@ -87,16 +87,30 @@ export default function Lens() {
     setBusy(true)
     setError('')
     setSuccess('')
-    try {
+    const postScan = async (skipOcr = false) => {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await api('/lens/scan', { method: 'POST', body: fd })
+      if (skipOcr) fd.append('skip_ocr', 'true')
+      return api('/lens/scan', { method: 'POST', body: fd })
+    }
+    try {
+      const res = await postScan(false)
       applyParsed(res.capture, res.parsed)
       if (res.parsed?.warnings?.length) {
         setSuccess(res.parsed.warnings.join(' · '))
+      } else if (res.parsed?.ocr_engine === 'manual') {
+        setSuccess('Could not read text — enter the total manually, then confirm')
       }
     } catch (e) {
-      setError(e.message)
+      // 502 / worker crash — retry without OCR so user can still save the sale
+      try {
+        const res = await postScan(true)
+        applyParsed(res.capture, res.parsed)
+        setSuccess('OCR crashed — enter the total manually, then confirm')
+        setError('')
+      } catch (e2) {
+        setError(e2.message || e.message || 'Scan failed')
+      }
     } finally {
       setBusy(false)
     }
