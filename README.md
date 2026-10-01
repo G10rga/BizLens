@@ -67,20 +67,16 @@ For businesses that have a fiscal terminal but do not want a full POS:
 4. Confirm — writes a `lens` sale + daily revenue for forecasting
 5. Completeness bars show capture rate vs expected receipts/day; low capture **widens** forecast ranges
 
-OCR backends (optional):
+OCR backends (**free-first**, no paid API required):
 
-| Setup | Behavior |
-|-------|----------|
-| `OPENAI_API_KEY` in `.env` | Vision model extracts receipt text |
-| System Tesseract + `pip install pytesseract` | Local OCR |
-| Neither | **Demo receipt** still works; photo uploads need manual totals |
+| Priority | Setup | Cost |
+|----------|--------|------|
+| 1 | **OCR.space** — set `OCR_SPACE_API_KEY` from [ocr.space/ocrapi](https://ocr.space/ocrapi) (or leave unset for demo key `helloworld`) | Free tier |
+| 2 | **Tesseract** local — OS package + `pytesseract` | Free |
+| 3 | `OPENAI_API_KEY` | Paid optional |
+| — | **Demo receipt** button | Always works |
 
-```powershell
-pip install Pillow
-# optional:
-pip install pytesseract
-# plus install Tesseract OCR for your OS
-```
+On Render: add env `OCR_SPACE_API_KEY` = your free key. Photos are parsed → review → confirm → written to the database.
 
 ## Import your shop CSV
 
@@ -108,9 +104,21 @@ Demo login: `demo@bizlens.ge` / `demo1234` (when `DEMO_SEED=true`)
 | Setting | Value |
 |---------|--------|
 | Runtime | Python 3 |
-| Build command | `chmod +x bin/render-build.sh && ./bin/render-build.sh` |
-| Start command | `cd backend && gunicorn "run:app" --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180` |
+| Build command | `bash bin/render-build.sh` |
+| Start command | `bash bin/render-start.sh` |
 | Health check | `/api/health` |
+
+If the form rejects scripts, use these equivalents:
+
+**Build**
+```bash
+pip install -r requirements.txt && npm --prefix web ci && npm --prefix web run build
+```
+
+**Start**
+```bash
+gunicorn --chdir backend run:app -b 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180
+```
 
 **Environment variables**
 
