@@ -44,7 +44,9 @@ a { color: inherit; }
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0.5rem 1.25rem;
+  width: 100%;
 }
+.brand .lang-switch { margin-left: auto; }
 .brand-mark {
   width: 36px;
   height: 36px;
@@ -73,6 +75,52 @@ a { color: inherit; }
   border-top: 1px solid rgba(255,255,255,0.12);
   font-size: 0.85rem;
   opacity: 0.9;
+}
+
+.lang-switch {
+  display: inline-flex;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.lang-switch button {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.4rem 0.65rem;
+  min-width: 2.5rem;
+}
+.lang-switch.dark {
+  border: 1px solid rgba(255,255,255,0.25);
+}
+.lang-switch.dark button {
+  background: transparent;
+  color: rgba(255,255,255,0.7);
+}
+.lang-switch.dark button.active {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+}
+.lang-switch.light {
+  border: 1px solid var(--line);
+}
+.lang-switch.light button {
+  background: #fff;
+  color: var(--muted);
+}
+.lang-switch.light button.active {
+  background: var(--pine);
+  color: #fff;
+}
+.auth-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .main {
@@ -174,6 +222,7 @@ a { color: inherit; }
   box-shadow: 0 20px 40px -20px rgba(15,23,42,0.2);
 }
 .auth-card h1 { margin: 0 0 0.25rem; color: var(--pine); }
+.auth-card-head p { margin: 0; }
 .error {
   background: #fef2f2;
   color: #dc2626;

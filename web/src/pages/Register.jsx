@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth'
+import { LanguageSwitcher, useI18n } from '../i18n'
 
 export default function Register() {
   const { register, user, loading } = useAuth()
+  const { lang, t } = useI18n()
   const [form, setForm] = useState({ email: '', password: '', full_name: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -15,7 +17,7 @@ export default function Register() {
     setBusy(true)
     setError('')
     try {
-      await register(form)
+      await register({ ...form, language: lang })
     } catch (err) {
       setError(err.message)
     } finally {
@@ -26,18 +28,23 @@ export default function Register() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={onSubmit}>
-        <h1>რეგისტრაცია</h1>
-        <p className="muted">შექმენით BizLens ანგარიში</p>
+        <div className="auth-card-head">
+          <div>
+            <h1>{t('register.title')}</h1>
+            <p className="muted">{t('register.subtitle')}</p>
+          </div>
+          <LanguageSwitcher variant="light" />
+        </div>
         {error && <div className="error">{error}</div>}
         <div className="field">
-          <label>სახელი</label>
+          <label>{t('register.name')}</label>
           <input
             value={form.full_name}
             onChange={(e) => setForm({ ...form, full_name: e.target.value })}
           />
         </div>
         <div className="field">
-          <label>ელფოსტა</label>
+          <label>{t('register.email')}</label>
           <input
             type="email"
             required
@@ -46,7 +53,7 @@ export default function Register() {
           />
         </div>
         <div className="field">
-          <label>პაროლი</label>
+          <label>{t('register.password')}</label>
           <input
             type="password"
             required
@@ -56,10 +63,10 @@ export default function Register() {
           />
         </div>
         <button className="btn" style={{ width: '100%' }} disabled={busy}>
-          {busy ? '...' : 'შექმნა'}
+          {busy ? t('common.saving') : t('register.submit')}
         </button>
         <p className="muted" style={{ marginTop: '1rem' }}>
-          უკვე გაქვთ ანგარიში? <Link to="/login">შესვლა</Link>
+          {t('register.haveAccount')} <Link to="/login">{t('register.login')}</Link>
         </p>
       </form>
     </div>

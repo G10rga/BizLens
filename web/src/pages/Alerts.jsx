@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
-import { api, money } from '../api'
+import { api } from '../api'
+import { useI18n } from '../i18n'
 
 export default function Alerts() {
+  const { lang, t, money } = useI18n()
   const [alerts, setAlerts] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -28,15 +30,17 @@ export default function Alerts() {
     await load()
   }
 
+  const severityLabel = (severity) => t(`alerts.severity.${severity}`) || severity
+
   return (
     <>
       <div className="topbar">
         <div>
-          <h1>გაფრთხილებები</h1>
-          <p className="muted">მოქმედებაზე ორიენტირებული შეტყობინებები პროგნოზიდან</p>
+          <h1>{t('alerts.title')}</h1>
+          <p className="muted">{t('alerts.subtitle')}</p>
         </div>
         <button className="btn secondary" onClick={regenerate} disabled={busy}>
-          {busy ? '...' : 'განახლება'}
+          {busy ? t('common.saving') : t('alerts.refresh')}
         </button>
       </div>
       {error && <div className="error">{error}</div>}
@@ -45,19 +49,19 @@ export default function Alerts() {
           <div key={a.id} className={`card alert-item ${a.severity}`}>
             <div className="row">
               <span className={`badge ${a.severity === 'danger' ? 'red' : a.severity === 'opportunity' ? 'green' : 'yellow'}`}>
-                {a.severity}
+                {severityLabel(a.severity)}
               </span>
               {a.alert_date && <span className="muted">{a.alert_date}</span>}
               {a.amount != null && <strong style={{ marginLeft: 'auto' }}>{money(a.amount)}</strong>}
             </div>
-            <h3 style={{ marginTop: '0.6rem' }}>{a.title_ka || a.title}</h3>
-            <p>{a.message_ka || a.message}</p>
+            <h3 style={{ marginTop: '0.6rem' }}>{lang === 'ka' ? (a.title_ka || a.title) : (a.title || a.title_ka)}</h3>
+            <p>{lang === 'ka' ? (a.message_ka || a.message) : (a.message || a.message_ka)}</p>
             {!a.acknowledged && (
-              <button className="btn ghost" onClick={() => ack(a.id)}>მიღებულია</button>
+              <button className="btn ghost" onClick={() => ack(a.id)}>{t('alerts.ack')}</button>
             )}
           </div>
         ))}
-        {!alerts.length && <div className="card muted">გაფრთხილებები არ არის</div>}
+        {!alerts.length && <div className="card muted">{t('alerts.empty')}</div>}
       </div>
     </>
   )
