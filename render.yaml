@@ -13,8 +13,8 @@ services:
     region: oregon
     branch: main
     pythonVersion: "3.11.11"
-    buildCommand: chmod +x bin/render-build.sh && ./bin/render-build.sh
-    startCommand: cd backend && gunicorn "run:app" --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180
+    buildCommand: bash bin/render-build.sh
+    startCommand: bash bin/render-start.sh
     healthCheckPath: /api/health
     envVars:
       - key: PYTHON_VERSION
