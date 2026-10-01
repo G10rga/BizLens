@@ -11,6 +11,9 @@ python-dateutil>=2.9
 holidays>=0.60
 gunicorn>=23.0
 openpyxl>=3.1
+Pillow>=10.0
+# Optional OCR: system Tesseract + pip install pytesseract
+# Optional Vision: set OPENAI_API_KEY for photo→text via OpenAI
 # Optional (preferred for Demo Day accuracy). Install separately if your Python supports it:
 # prophet>=1.1.5
 # psycopg2-binary>=2.9

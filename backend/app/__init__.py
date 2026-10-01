@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -10,6 +12,7 @@ from .routes import (
     csv_import,
     expenses,
     forecast,
+    lens,
     onboarding,
     products,
     sales,
@@ -34,10 +37,12 @@ def create_app(config_object=Config):
     app.register_blueprint(forecast.bp)
     app.register_blueprint(alerts.bp)
     app.register_blueprint(csv_import.bp)
+    app.register_blueprint(lens.bp)
     app.register_blueprint(settings.bp)
 
     dist = app.config["FRONTEND_DIST"]
     stitch = app.config["STITCH_DIR"]
+    Path(app.config["UPLOAD_DIR"]).mkdir(parents=True, exist_ok=True)
 
     @app.get("/api/health")
     def health():
@@ -68,7 +73,32 @@ def create_app(config_object=Config):
 
     with app.app_context():
         db.create_all()
+        _ensure_schema_compat()
         if app.config.get("DEMO_SEED"):
             seed_demo_if_needed(app)
 
     return app
+
+
+def _ensure_schema_compat() -> None:
+    """Lightweight SQLite patches for additive columns (no Alembic yet)."""
+    try:
+        from sqlalchemy import inspect, text
+
+        eng = db.engine
+        if eng.dialect.name != "sqlite":
+            return
+        insp = inspect(eng)
+        if "businesses" not in insp.get_table_names():
+            return
+        cols = {c["name"] for c in insp.get_columns("businesses")}
+        if "lens_expected_receipts_per_day" not in cols:
+            with eng.begin() as conn:
+                conn.execute(
+                    text(
+                        "ALTER TABLE businesses "
+                        "ADD COLUMN lens_expected_receipts_per_day INTEGER NOT NULL DEFAULT 10"
+                    )
+                )
+    except Exception:  # noqa: BLE001
+        pass

@@ -51,6 +51,8 @@ class Business(db.Model, TimestampMixin):
     cash_on_hand = db.Column(db.Float, nullable=False, default=0.0)
     onboarding_complete = db.Column(db.Boolean, default=False, nullable=False)
     cash_baseline_date = db.Column(db.Date, default=date.today, nullable=False)
+    # Lens Mode: expected fiscal receipts/day for completeness + forecast confidence
+    lens_expected_receipts_per_day = db.Column(db.Integer, nullable=False, default=10)
 
     owner = db.relationship("User", back_populates="business")
     products = db.relationship("Product", back_populates="business", cascade="all, delete-orphan")
@@ -68,6 +70,9 @@ class Business(db.Model, TimestampMixin):
     csv_imports = db.relationship(
         "CsvImport", back_populates="business", cascade="all, delete-orphan"
     )
+    receipt_captures = db.relationship(
+        "ReceiptCapture", back_populates="business", cascade="all, delete-orphan"
+    )
 
     def to_dict(self):
         return {
@@ -78,6 +83,7 @@ class Business(db.Model, TimestampMixin):
             "cash_on_hand": self.cash_on_hand,
             "onboarding_complete": self.onboarding_complete,
             "cash_baseline_date": self.cash_baseline_date.isoformat(),
+            "lens_expected_receipts_per_day": self.lens_expected_receipts_per_day,
         }
 
 
@@ -111,10 +117,13 @@ class Sale(db.Model, TimestampMixin):
     total = db.Column(db.Float, nullable=False)
     payment_method = db.Column(db.String(16), nullable=False)  # cash | card
     sold_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
-    source = db.Column(db.String(16), default="pos", nullable=False)  # pos | csv
+    source = db.Column(db.String(16), default="pos", nullable=False)  # pos | csv | lens
 
     business = db.relationship("Business", back_populates="sales")
     items = db.relationship("SaleItem", back_populates="sale", cascade="all, delete-orphan")
+    receipt_capture = db.relationship(
+        "ReceiptCapture", back_populates="sale", uselist=False
+    )
 
     def to_dict(self):
         return {
@@ -267,6 +276,57 @@ class CsvImport(db.Model, TimestampMixin):
             "rows_imported": self.rows_imported,
             "status": self.status,
             "message": self.message,
+            "created_at": self.created_at.isoformat(),
+        }
+
+
+class ReceiptCapture(db.Model, TimestampMixin):
+    """Lens Mode: fiscal receipt photo → parsed sale."""
+
+    __tablename__ = "receipt_captures"
+
+    id = db.Column(db.Integer, primary_key=True)
+    business_id = db.Column(db.Integer, db.ForeignKey("businesses.id"), nullable=False, index=True)
+    sale_id = db.Column(db.Integer, db.ForeignKey("sales.id"), nullable=True, unique=True)
+    image_path = db.Column(db.String(512), nullable=True)
+    raw_text = db.Column(db.Text, nullable=True)
+    receipt_date = db.Column(db.Date, nullable=True)
+    receipt_time = db.Column(db.String(16), nullable=True)
+    total = db.Column(db.Float, nullable=True)
+    payment_method = db.Column(db.String(16), nullable=True)  # cash | card | unknown
+    tin = db.Column(db.String(32), nullable=True)
+    items_json = db.Column(db.Text, nullable=True)  # JSON list of line items
+    parse_confidence = db.Column(db.Float, nullable=False, default=0.0)
+    ocr_engine = db.Column(db.String(64), nullable=True)
+    status = db.Column(db.String(32), nullable=False, default="draft")
+    # draft | confirmed | failed
+
+    business = db.relationship("Business", back_populates="receipt_captures")
+    sale = db.relationship("Sale", back_populates="receipt_capture")
+
+    def to_dict(self):
+        import json
+
+        items = []
+        if self.items_json:
+            try:
+                items = json.loads(self.items_json)
+            except Exception:  # noqa: BLE001
+                items = []
+        return {
+            "id": self.id,
+            "sale_id": self.sale_id,
+            "image_url": f"/api/lens/images/{self.id}" if self.image_path else None,
+            "raw_text": self.raw_text,
+            "receipt_date": self.receipt_date.isoformat() if self.receipt_date else None,
+            "receipt_time": self.receipt_time,
+            "total": self.total,
+            "payment_method": self.payment_method,
+            "tin": self.tin,
+            "items": items,
+            "parse_confidence": self.parse_confidence,
+            "ocr_engine": self.ocr_engine,
+            "status": self.status,
             "created_at": self.created_at.isoformat(),
         }
 

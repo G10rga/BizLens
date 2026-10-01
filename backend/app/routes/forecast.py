@@ -9,6 +9,7 @@ from ..models import Alert, FixedExpense, SupplierPayment
 from ..services.alerts import build_alerts
 from ..services.cashflow import project_cashflow
 from ..services.forecast import backtest_forecast, forecast_sales
+from ..services.lens_completeness import completeness_report, recent_capture_widen_factor
 from ..services.sales_agg import daily_rows_for_business
 from .helpers import require_business
 
@@ -34,6 +35,8 @@ def run_business_forecast(business, horizon_days=None):
     )
     expenses = [e.to_dict() for e in FixedExpense.query.filter_by(business_id=business.id).all()]
     suppliers = [s.to_dict() for s in SupplierPayment.query.filter_by(business_id=business.id).all()]
+    # Incomplete Lens capture → wider forecast ranges on the dashboard cards
+    widen = recent_capture_widen_factor(business, lookback_days=7)
     cashflow = project_cashflow(
         starting_cash=float(business.cash_on_hand),
         start_date=as_of + timedelta(days=1),
@@ -41,6 +44,7 @@ def run_business_forecast(business, horizon_days=None):
         income_series=forecast["income_forecast"],
         expenses=expenses,
         suppliers=suppliers,
+        range_widen_factor=widen,
     )
     return forecast, cashflow, as_of
 
@@ -104,6 +108,7 @@ def dashboard(business):
                 if timeline and m["date"] <= timeline[min(len(timeline), chart_horizon) - 1]["date"]
             ] if timeline else cashflow["expense_markers"],
             "summary": cashflow["summary"],
+            "lens_completeness": completeness_report(business, days=14),
             "thresholds": {
                 "green": Config.CASH_GREEN_THRESHOLD,
                 "yellow": Config.CASH_YELLOW_THRESHOLD,
