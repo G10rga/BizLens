@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth'
+import { useI18n } from './i18n'
 import Layout from './Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -16,7 +17,8 @@ import Settings from './pages/Settings'
 
 function Protected({ children, needOnboardingDone = true }) {
   const { user, loading } = useAuth()
-  if (loading) return <div className="auth-page"><p>იტვირთება...</p></div>
+  const { t } = useI18n()
+  if (loading) return <div className="auth-page"><p>{t('common.loading')}</p></div>
   if (!user) return <Navigate to="/login" replace />
   if (needOnboardingDone && !user.onboarding_complete) {
     return <Navigate to="/onboarding" replace />

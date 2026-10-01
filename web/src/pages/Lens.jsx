@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api, money } from '../api'
+import { api } from '../api'
 import { useAuth } from '../auth'
+import { useI18n } from '../i18n'
 
 const emptyItems = () => [{ product_name: '', quantity: 1, unit_price: 0, line_total: 0 }]
 
@@ -10,12 +11,13 @@ function round2(n) {
 
 export default function Lens() {
   const { refresh } = useAuth()
+  const { t, money } = useI18n()
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [step, setStep] = useState('capture') // capture | review | items | done
+  const [step, setStep] = useState('capture')
   const [capture, setCapture] = useState(null)
   const [parsed, setParsed] = useState(null)
   const [form, setForm] = useState({
@@ -106,7 +108,7 @@ export default function Lens() {
     try {
       const res = await api('/lens/scan-demo', { method: 'POST', body: '{}' })
       applyParsed(res.capture, res.parsed)
-      setSuccess('Demo receipt parsed — review fields and confirm')
+      setSuccess(t('lens.demoParsed'))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -141,7 +143,13 @@ export default function Lens() {
         method: 'POST',
         body: JSON.stringify(body),
       })
-      setSuccess(`Saved ${money(res.sale.total)} · ${res.sale.payment_method} · #${res.sale.id}`)
+      setSuccess(
+        t('lens.savedSale', {
+          total: money(res.sale.total),
+          method: res.sale.payment_method === 'card' ? t('common.card') : t('common.cash'),
+          id: res.sale.id,
+        })
+      )
       setCompleteness(res.completeness)
       setStep('done')
       setFile(null)
@@ -163,7 +171,7 @@ export default function Lens() {
         body: JSON.stringify({ expected_per_day: Number(expected) || 10 }),
       })
       setCompleteness(res.completeness)
-      setSuccess(`Daily target: ${res.lens_expected_receipts_per_day} receipts`)
+      setSuccess(t('lens.dailyTarget', { n: res.lens_expected_receipts_per_day }))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -176,22 +184,20 @@ export default function Lens() {
   const capturePct = Math.round((completeness?.average_capture_rate || 0) * 100)
 
   const confidenceLabel = useMemo(() => {
-    if (capturePct >= 80) return { text: 'High confidence', cls: 'green' }
-    if (capturePct >= 50) return { text: 'Medium confidence', cls: 'yellow' }
-    return { text: 'Low confidence — capture more receipts', cls: 'red' }
-  }, [capturePct])
+    if (capturePct >= 80) return { text: t('lens.confHigh'), cls: 'green' }
+    if (capturePct >= 50) return { text: t('lens.confMed'), cls: 'yellow' }
+    return { text: t('lens.confLow'), cls: 'red' }
+  }, [capturePct, t])
 
   return (
     <>
       <div className="topbar">
         <div>
-          <h1>Lens Mode</h1>
-          <p className="muted">
-            Photograph a fiscal receipt — BizLens extracts the total and records the sale (no full POS needed)
-          </p>
+          <h1>{t('lens.title')}</h1>
+          <p className="muted">{t('lens.subtitle')}</p>
         </div>
         <button className="btn secondary" disabled={busy} onClick={scanDemo}>
-          Demo receipt
+          {t('lens.demo')}
         </button>
       </div>
 
@@ -201,20 +207,20 @@ export default function Lens() {
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div>
-            <div className="label">Data completeness (14d)</div>
+            <div className="label">{t('lens.completeness')}</div>
             <div className="metric small">{capturePct}%</div>
             <span className={`badge ${confidenceLabel.cls}`}>{confidenceLabel.text}</span>
           </div>
           <div>
-            <div className="label">Forecast confidence</div>
+            <div className="label">{t('lens.forecastConf')}</div>
             <div className="metric small">{confidencePct}%</div>
             <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
-              Range widen ×{completeness?.range_widen_factor ?? 1}
+              {t('lens.rangeWiden', { n: completeness?.range_widen_factor ?? 1 })}
             </p>
           </div>
           <div style={{ minWidth: 200 }}>
             <div className="field" style={{ marginBottom: 0 }}>
-              <label>Expected receipts / day</label>
+              <label>{t('lens.expected')}</label>
               <div className="row">
                 <input
                   type="number"
@@ -225,7 +231,7 @@ export default function Lens() {
                   style={{ width: 90 }}
                 />
                 <button className="btn ghost" disabled={busy} onClick={saveExpected}>
-                  Save
+                  {t('common.save')}
                 </button>
               </div>
             </div>
@@ -233,10 +239,8 @@ export default function Lens() {
         </div>
         {today && (
           <p className="muted" style={{ marginBottom: 0, marginTop: '0.75rem' }}>
-            Today: {today.captured} / {today.expected} receipts
-            {today.captured < today.expected
-              ? ' — missing captures widen the forecast range'
-              : ' — good capture rate'}
+            {t('lens.todayLine', { captured: today.captured, expected: today.expected })}
+            {today.captured < today.expected ? t('lens.todayMissing') : t('lens.todayGood')}
           </p>
         )}
         <div className="completeness-bars">
@@ -256,10 +260,10 @@ export default function Lens() {
       {(step === 'capture' || step === 'done') && (
         <div className="grid grid-2">
           <div className="card">
-            <h2>1. Photograph the receipt</h2>
+            <h2>{t('lens.step1')}</h2>
             <div className="dropzone lens-drop">
-              <p><strong>Camera or gallery</strong></p>
-              <p className="muted">Printed receipt or terminal screen</p>
+              <p><strong>{t('lens.camera')}</strong></p>
+              <p className="muted">{t('lens.cameraHint')}</p>
               <input
                 type="file"
                 accept="image/*"
@@ -272,22 +276,22 @@ export default function Lens() {
               />
             </div>
             {previewUrl && (
-              <img src={previewUrl} alt="Receipt preview" className="lens-preview" />
+              <img src={previewUrl} alt="" className="lens-preview" />
             )}
             <div className="row" style={{ marginTop: '1rem' }}>
               <button className="btn" disabled={!file || busy} onClick={scanFile}>
-                {busy ? 'Processing…' : 'AI parse'}
+                {busy ? t('lens.processing') : t('lens.parse')}
               </button>
             </div>
           </div>
           <div className="card">
-            <h2>Recent receipts</h2>
+            <h2>{t('lens.recent')}</h2>
             <table className="table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Total</th>
-                  <th>Status</th>
+                  <th>{t('common.date')}</th>
+                  <th>{t('common.total')}</th>
+                  <th>{t('common.status')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -300,7 +304,7 @@ export default function Lens() {
                 ))}
                 {!history.length && (
                   <tr>
-                    <td colSpan={3} className="muted">No receipts yet</td>
+                    <td colSpan={3} className="muted">{t('lens.noReceipts')}</td>
                   </tr>
                 )}
               </tbody>
@@ -312,18 +316,20 @@ export default function Lens() {
       {step === 'review' && (
         <div className="grid grid-2">
           <div className="card">
-            <h2>2. Review</h2>
+            <h2>{t('lens.step2')}</h2>
             <p className="muted">
-              Engine: {capture?.ocr_engine || '—'} · confidence{' '}
-              {Math.round((capture?.parse_confidence || 0) * 100)}%
+              {t('lens.engine', {
+                engine: capture?.ocr_engine || '—',
+                pct: Math.round((capture?.parse_confidence || 0) * 100),
+              })}
             </p>
-            {previewUrl && <img src={previewUrl} alt="Receipt" className="lens-preview" />}
+            {previewUrl && <img src={previewUrl} alt="" className="lens-preview" />}
             {parsed?.raw_text && <pre className="ocr-text">{parsed.raw_text}</pre>}
           </div>
           <div className="card">
-            <h2>Extracted fields</h2>
+            <h2>{t('lens.fields')}</h2>
             <div className="field">
-              <label>Date</label>
+              <label>{t('lens.date')}</label>
               <input
                 type="date"
                 value={form.receipt_date}
@@ -331,7 +337,7 @@ export default function Lens() {
               />
             </div>
             <div className="field">
-              <label>Time</label>
+              <label>{t('lens.time')}</label>
               <input
                 type="time"
                 value={form.receipt_time || ''}
@@ -339,7 +345,7 @@ export default function Lens() {
               />
             </div>
             <div className="field">
-              <label>Total (GEL)</label>
+              <label>{t('lens.totalGel')}</label>
               <input
                 type="number"
                 step="0.01"
@@ -348,35 +354,35 @@ export default function Lens() {
               />
             </div>
             <div className="field">
-              <label>Payment</label>
+              <label>{t('lens.payment')}</label>
               <select
                 value={form.payment_method}
                 onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
               >
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
+                <option value="cash">{t('common.cash')}</option>
+                <option value="card">{t('common.card')}</option>
               </select>
             </div>
             <div className="field">
-              <label>TIN (optional)</label>
+              <label>{t('lens.tin')}</label>
               <input
                 value={form.tin}
                 onChange={(e) => setForm({ ...form, tin: e.target.value })}
               />
             </div>
             <p style={{ fontWeight: 600, color: 'var(--pine)' }}>
-              Do you want to record what you sold?
+              {t('lens.recordItems')}
             </p>
             <div className="row">
               <button className="btn" disabled={busy} onClick={() => setStep('items')}>
-                Yes, add items
+                {t('lens.addItems')}
               </button>
               <button
                 className="btn secondary"
                 disabled={busy || !form.total}
                 onClick={() => confirmSale(false)}
               >
-                Skip — total only
+                {t('lens.skipTotal')}
               </button>
             </div>
             <button
@@ -387,7 +393,7 @@ export default function Lens() {
                 setCapture(null)
               }}
             >
-              Back
+              {t('common.back')}
             </button>
           </div>
         </div>
@@ -395,14 +401,12 @@ export default function Lens() {
 
       {step === 'items' && (
         <div className="card">
-          <h2>3. Items (lightweight log)</h2>
-          <p className="muted">
-            Not a full POS — quick item notes that improve forecasting over time
-          </p>
+          <h2>{t('lens.step3')}</h2>
+          <p className="muted">{t('lens.step3Hint')}</p>
           {items.map((item, idx) => (
             <div className="row" key={idx} style={{ marginBottom: '0.5rem' }}>
               <input
-                placeholder="Product"
+                placeholder={t('lens.product')}
                 value={item.product_name}
                 onChange={(e) => {
                   const next = [...items]
@@ -430,7 +434,7 @@ export default function Lens() {
               <input
                 type="number"
                 step="0.01"
-                placeholder="Price"
+                placeholder={t('lens.price')}
                 value={item.unit_price}
                 onChange={(e) => {
                   const next = [...items]
@@ -449,16 +453,16 @@ export default function Lens() {
           ))}
           <div className="row" style={{ marginTop: '0.75rem' }}>
             <button className="btn ghost" onClick={() => setItems([...items, ...emptyItems()])}>
-              + Line
+              {t('lens.addLine')}
             </button>
             <button className="btn" disabled={busy} onClick={() => confirmSale(true)}>
-              Save with items
+              {t('lens.saveItems')}
             </button>
             <button className="btn secondary" disabled={busy} onClick={() => confirmSale(false)}>
-              Total only
+              {t('lens.totalOnly')}
             </button>
             <button className="btn ghost" onClick={() => setStep('review')}>
-              Back
+              {t('common.back')}
             </button>
           </div>
         </div>
@@ -466,10 +470,8 @@ export default function Lens() {
 
       {step === 'done' && (
         <div className="card">
-          <h2>Saved</h2>
-          <p>
-            Receipt added to sales and daily revenue. The dashboard forecast will use this data.
-          </p>
+          <h2>{t('lens.savedTitle')}</h2>
+          <p>{t('lens.savedBody')}</p>
           <button
             className="btn"
             onClick={() => {
@@ -477,7 +479,7 @@ export default function Lens() {
               setSuccess('')
             }}
           >
-            New receipt
+            {t('lens.newReceipt')}
           </button>
         </div>
       )}
