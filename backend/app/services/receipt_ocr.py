@@ -166,7 +166,53 @@ def parse_receipt_text(raw_text: str) -> dict[str, Any]:
     }
 
 
+def empty_manual_parse(warning: str | None = None) -> dict[str, Any]:
+    """Safe draft when OCR fails/crashes — user enters total manually."""
+    warnings = [
+        warning
+        or "OCR unavailable — enter the receipt total manually, then confirm"
+    ]
+    return {
+        "receipt_date": date.today().isoformat(),
+        "receipt_time": None,
+        "total": None,
+        "payment_method": "cash",
+        "tin": None,
+        "items": [],
+        "parse_confidence": 0.0,
+        "warnings": warnings,
+        "raw_text": "",
+        "ocr_engine": "manual",
+    }
+
+
+def compress_for_ocr(image_bytes: bytes, max_side: int = 1280) -> bytes:
+    """Shrink phone photos so OCR doesn't OOM (common cause of HTTP 502)."""
+    from io import BytesIO
+
+    from PIL import Image, ImageOps
+
+    try:
+        img = Image.open(BytesIO(image_bytes))
+        img = ImageOps.exif_transpose(img)
+        if img.mode not in {"RGB", "L"}:
+            img = img.convert("RGB")
+        else:
+            img = img.convert("RGB")
+        w, h = img.size
+        longest = max(w, h)
+        if longest > max_side:
+            scale = max_side / longest
+            img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+        out = BytesIO()
+        img.save(out, format="JPEG", quality=85, optimize=True)
+        return out.getvalue()
+    except Exception:  # noqa: BLE001
+        return image_bytes
+
+
 def parse_image(image_bytes: bytes, filename: str = "receipt.jpg") -> dict[str, Any]:
+    image_bytes = compress_for_ocr(image_bytes)
     raw, engine = extract_text_from_image(image_bytes, filename)
     parsed = parse_receipt_text(raw)
     parsed["raw_text"] = raw
@@ -174,7 +220,7 @@ def parse_image(image_bytes: bytes, filename: str = "receipt.jpg") -> dict[str, 
     if engine == "none":
         parsed["warnings"] = list(parsed.get("warnings") or []) + [
             "Local OCR found no text — enter the total manually, or re-photo the receipt "
-            "in good light (flat, fill the frame). pip install rapidocr-onnxruntime"
+            "in good light (flat, fill the frame)."
         ]
         parsed["parse_confidence"] = min(float(parsed.get("parse_confidence") or 0), 0.1)
     elif engine in {"rapidocr", "tesseract"}:
@@ -182,6 +228,65 @@ def parse_image(image_bytes: bytes, filename: str = "receipt.jpg") -> dict[str, 
             f"Parsed locally with {engine} — review before confirming"
         ]
     return parsed
+
+
+def parse_image_safe(
+    image_bytes: bytes,
+    filename: str = "receipt.jpg",
+    *,
+    timeout_sec: int = 45,
+    skip_ocr: bool = False,
+) -> dict[str, Any]:
+    """
+    OCR in a child process so crashes/OOM return a manual draft instead of HTTP 502.
+    """
+    if skip_ocr:
+        return empty_manual_parse("OCR skipped — enter total manually")
+
+    import subprocess
+    import sys
+    import tempfile
+    from pathlib import Path
+
+    image_bytes = compress_for_ocr(image_bytes)
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp.write(image_bytes)
+            tmp_path = tmp.name
+
+        # Run as module from backend/ so `app.*` imports resolve
+        backend_dir = str(Path(__file__).resolve().parents[2])
+        proc = subprocess.run(
+            [sys.executable, "-m", "app.services.receipt_ocr_worker", tmp_path],
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+            cwd=backend_dir,
+            env={**os.environ, "OMP_NUM_THREADS": "1"},
+        )
+        if proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "OCR worker failed").strip()
+            return empty_manual_parse(
+                f"OCR worker failed — enter total manually. ({err[:180]})"
+            )
+        line = (proc.stdout or "").strip().splitlines()[-1] if proc.stdout else ""
+        parsed = json.loads(line)
+        if "error" in parsed and "ocr_engine" not in parsed:
+            return empty_manual_parse(str(parsed.get("error")))
+        return parsed
+    except subprocess.TimeoutExpired:
+        return empty_manual_parse(
+            "OCR timed out — enter the total manually (try a closer, sharper photo)"
+        )
+    except Exception as exc:  # noqa: BLE001
+        return empty_manual_parse(f"OCR error — enter total manually ({exc.__class__.__name__})")
+    finally:
+        if tmp_path:
+            try:
+                Path(tmp_path).unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001
+                pass
 
 
 _RAPIDOCR_ENGINE = None
@@ -206,24 +311,30 @@ def _get_rapidocr():
 
 
 def _preprocess_receipt_image(image_bytes: bytes):
-    """Upscale / contrast boost — helps phone photos of thermal receipts."""
+    """Contrast boost; keep size modest to avoid OOM on phone photos."""
     from io import BytesIO
 
     import numpy as np
     from PIL import Image, ImageOps, ImageFilter
 
     img = Image.open(BytesIO(image_bytes))
+    img = ImageOps.exif_transpose(img)
     if img.mode not in {"RGB", "L"}:
         img = img.convert("RGB")
-    # Upscale small phone crops
+    else:
+        img = img.convert("RGB")
     w, h = img.size
-    if max(w, h) < 1200:
-        scale = 1200 / max(w, h)
+    longest = max(w, h)
+    # Cap size — large phone images were crashing workers (HTTP 502)
+    if longest > 1280:
+        scale = 1280 / longest
         img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
-    # Autocontrast helps faded thermal paper
+    elif longest < 900:
+        scale = 900 / longest
+        img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
     img = ImageOps.autocontrast(img, cutoff=2)
     img = img.filter(ImageFilter.SHARPEN)
-    return np.array(img.convert("RGB"))
+    return np.array(img)
 
 
 def _rapidocr_extract(image_bytes: bytes) -> str:
