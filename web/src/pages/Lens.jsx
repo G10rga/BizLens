@@ -31,15 +31,18 @@ export default function Lens() {
   const [completeness, setCompleteness] = useState(null)
   const [history, setHistory] = useState([])
   const [expected, setExpected] = useState(10)
+  const [ocrInfo, setOcrInfo] = useState(null)
 
   const loadMeta = async () => {
-    const [comp, hist] = await Promise.all([
+    const [comp, hist, ocr] = await Promise.all([
       api('/lens/completeness?days=14'),
       api('/lens/history'),
+      api('/lens/ocr-status'),
     ])
     setCompleteness(comp)
     setExpected(comp.expected_per_day || 10)
     setHistory(hist.captures || [])
+    setOcrInfo(ocr)
   }
 
   useEffect(() => {
@@ -86,16 +89,30 @@ export default function Lens() {
     setBusy(true)
     setError('')
     setSuccess('')
-    try {
+    const postScan = async (skipOcr = false) => {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await api('/lens/scan', { method: 'POST', body: fd })
+      if (skipOcr) fd.append('skip_ocr', 'true')
+      return api('/lens/scan', { method: 'POST', body: fd })
+    }
+    try {
+      const res = await postScan(false)
       applyParsed(res.capture, res.parsed)
       if (res.parsed?.warnings?.length) {
         setSuccess(res.parsed.warnings.join(' · '))
+      } else if (res.parsed?.ocr_engine === 'manual') {
+        setSuccess('Could not read text — enter the total manually, then confirm')
       }
     } catch (e) {
-      setError(e.message)
+      // 502 / worker crash — retry without OCR so user can still save the sale
+      try {
+        const res = await postScan(true)
+        applyParsed(res.capture, res.parsed)
+        setSuccess('OCR crashed — enter the total manually, then confirm')
+        setError('')
+      } catch (e2) {
+        setError(e2.message || e.message || 'Scan failed')
+      }
     } finally {
       setBusy(false)
     }
@@ -195,6 +212,10 @@ export default function Lens() {
         <div>
           <h1>{t('lens.title')}</h1>
           <p className="muted">{t('lens.subtitle')}</p>
+          <h1>Lens Mode</h1>
+          <p className="muted">
+            Photograph a fiscal receipt — free OCR extracts the total and saves it to your sales database
+          </p>
         </div>
         <button className="btn secondary" disabled={busy} onClick={scanDemo}>
           {t('lens.demo')}
@@ -203,6 +224,18 @@ export default function Lens() {
 
       {error && <div className="error">{error}</div>}
       {success && <div className="success">{success}</div>}
+
+      {ocrInfo && (
+        <div className="card" style={{ marginBottom: '1rem', background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+          <strong>Local OCR (no API keys)</strong>
+          <p className="muted" style={{ margin: '0.35rem 0 0' }}>
+            RapidOCR: {ocrInfo.rapidocr ? 'ready' : 'missing — pip install rapidocr-onnxruntime'} ·
+            Tesseract: {ocrInfo.tesseract ? 'ready' : 'optional'} ·
+            Cloud: {ocrInfo.ocr_space || ocrInfo.openai_vision ? 'optional key set' : 'off'}
+            . Runs on your machine — review totals before confirm.
+          </p>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: '1rem' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
