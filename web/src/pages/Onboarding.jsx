@@ -2,19 +2,14 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
+import { LanguageSwitcher, useI18n } from '../i18n'
 
-const TYPES = [
-  ['bakery', 'საცხობი'],
-  ['restaurant', 'რესტორანი/კაფე'],
-  ['retail', 'რითეილი'],
-  ['pharmacy', 'აფთიაქი'],
-  ['salon', 'სალონი'],
-  ['other', 'სხვა'],
-]
-const CITIES = ['Tbilisi', 'Batumi', 'Kutaisi', 'Other']
+const TYPE_KEYS = ['bakery', 'restaurant', 'retail', 'pharmacy', 'salon', 'other']
+const CITY_KEYS = ['Tbilisi', 'Batumi', 'Kutaisi', 'Other']
 
 export default function Onboarding() {
   const { user, refresh } = useAuth()
+  const { t } = useI18n()
   const [step, setStep] = useState(1)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -93,32 +88,39 @@ export default function Onboarding() {
     }
   }
 
+  const expenseLabel = (name) => t(`onboarding.expenses.${name}`) || name
+
   return (
     <div className="auth-page">
       <div className="auth-card" style={{ width: 'min(560px, 100%)' }}>
-        <h1>დაწყება · ნაბიჯი {step}/4</h1>
-        <p className="muted">5 წუთში მოარგეთ BizLens თქვენს ბიზნესს</p>
+        <div className="auth-card-head">
+          <div>
+            <h1>{t('onboarding.title', { step })}</h1>
+            <p className="muted">{t('onboarding.subtitle')}</p>
+          </div>
+          <LanguageSwitcher variant="light" />
+        </div>
         {error && <div className="error">{error}</div>}
 
         {step === 1 && (
           <>
             <div className="field">
-              <label>ბიზნესის სახელი</label>
+              <label>{t('onboarding.businessName')}</label>
               <input value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} required />
             </div>
             <div className="field">
-              <label>ტიპი</label>
+              <label>{t('onboarding.type')}</label>
               <select value={profile.business_type} onChange={(e) => setProfile({ ...profile, business_type: e.target.value })}>
-                {TYPES.map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
+                {TYPE_KEYS.map((v) => (
+                  <option key={v} value={v}>{t(`onboarding.types.${v}`)}</option>
                 ))}
               </select>
             </div>
             <div className="field">
-              <label>ქალაქი</label>
+              <label>{t('onboarding.city')}</label>
               <select value={profile.city} onChange={(e) => setProfile({ ...profile, city: e.target.value })}>
-                {CITIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                {CITY_KEYS.map((c) => (
+                  <option key={c} value={c}>{t(`onboarding.cities.${c}`)}</option>
                 ))}
               </select>
             </div>
@@ -129,7 +131,7 @@ export default function Onboarding() {
           expenses.map((exp, i) => (
             <div className="row" key={exp.name}>
               <div className="field" style={{ flex: 2 }}>
-                <label>{exp.name}</label>
+                <label>{expenseLabel(exp.name)}</label>
                 <input
                   type="number"
                   min="0"
@@ -143,7 +145,7 @@ export default function Onboarding() {
                 />
               </div>
               <div className="field" style={{ flex: 1 }}>
-                <label>დღე</label>
+                <label>{t('common.day')}</label>
                 <input
                   type="number"
                   min="1"
@@ -164,20 +166,20 @@ export default function Onboarding() {
             {suppliers.map((s, i) => (
               <div key={i} className="card" style={{ marginBottom: '0.75rem' }}>
                 <div className="field">
-                  <label>მომწოდებელი</label>
+                  <label>{t('onboarding.supplier')}</label>
                   <input value={s.name} onChange={(e) => {
                     const n = [...suppliers]; n[i] = { ...s, name: e.target.value }; setSuppliers(n)
                   }} />
                 </div>
                 <div className="row">
                   <div className="field" style={{ flex: 1 }}>
-                    <label>თანხა ₾</label>
+                    <label>{t('onboarding.amountGel')}</label>
                     <input type="number" value={s.amount} onChange={(e) => {
                       const n = [...suppliers]; n[i] = { ...s, amount: e.target.value }; setSuppliers(n)
                     }} />
                   </div>
                   <div className="field" style={{ flex: 1 }}>
-                    <label>ყოველ N დღე</label>
+                    <label>{t('onboarding.everyNDays')}</label>
                     <input type="number" value={s.every_n_days} onChange={(e) => {
                       const n = [...suppliers]; n[i] = { ...s, every_n_days: e.target.value }; setSuppliers(n)
                     }} />
@@ -185,19 +187,19 @@ export default function Onboarding() {
                 </div>
               </div>
             ))}
-            <button type="button" className="btn ghost" onClick={skipSuppliers}>გამოტოვება</button>
+            <button type="button" className="btn ghost" onClick={skipSuppliers}>{t('onboarding.skip')}</button>
           </>
         )}
 
         {step === 4 && (
           <div className="field">
-            <label>ნაღდი ფული ახლა (₾)</label>
+            <label>{t('onboarding.cashNow')}</label>
             <input type="number" min="0" step="0.01" value={cash} onChange={(e) => setCash(e.target.value)} />
           </div>
         )}
 
         <button className="btn" style={{ width: '100%', marginTop: '0.5rem' }} disabled={busy || (step === 1 && !profile.name)} onClick={next}>
-          {busy ? '...' : step === 4 ? 'დასრულება' : 'შემდეგი'}
+          {busy ? t('common.saving') : step === 4 ? t('onboarding.finish') : t('common.next')}
         </button>
       </div>
     </div>
