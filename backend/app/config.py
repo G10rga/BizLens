@@ -16,6 +16,15 @@ def _database_uri() -> str:
     raw = os.getenv("DATABASE_URL", "").strip()
     if not raw:
         return f"sqlite:///{(INSTANCE_DIR / 'bizlens.db').as_posix()}"
+
+    # Render / Heroku provide postgres:// — SQLAlchemy wants postgresql://
+    if raw.startswith("postgres://"):
+        raw = "postgresql://" + raw[len("postgres://") :]
+
+    # Prefer psycopg2 driver when using Postgres
+    if raw.startswith("postgresql://") and "+psycopg" not in raw.split("://", 1)[0]:
+        raw = "postgresql+psycopg2://" + raw[len("postgresql://") :]
+
     # Normalize relative sqlite paths to backend/instance
     if raw.startswith("sqlite:///"):
         rest = raw[len("sqlite:///") :]
@@ -28,10 +37,14 @@ def _database_uri() -> str:
 
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "bizlens-dev-secret")
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "bizlens-jwt-dev-secret")
+    SECRET_KEY = os.getenv("SECRET_KEY", "bizlens-dev-secret-change-me-32chars!!")
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "bizlens-jwt-dev-secret-change-me-32!")
     SQLALCHEMY_DATABASE_URI = _database_uri()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 280,
+    }
     JWT_ACCESS_TOKEN_EXPIRES = False
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*")
     DEMO_SEED = os.getenv("DEMO_SEED", "true").lower() in {"1", "true", "yes"}
@@ -43,3 +56,8 @@ class Config:
     CASH_GREEN_THRESHOLD = 1500.0
     CASH_YELLOW_THRESHOLD = 500.0
     FORECAST_HORIZON_DAYS = 90
+    # Render sets RENDER=true; also honor FLASK_ENV
+    IS_PRODUCTION = (
+        os.getenv("RENDER", "").lower() in {"1", "true", "yes"}
+        or os.getenv("FLASK_ENV", "").lower() == "production"
+    )
