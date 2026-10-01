@@ -67,16 +67,21 @@ For businesses that have a fiscal terminal but do not want a full POS:
 4. Confirm — writes a `lens` sale + daily revenue for forecasting
 5. Completeness bars show capture rate vs expected receipts/day; low capture **widens** forecast ranges
 
-OCR backends (**free-first**, no paid API required):
+OCR is **local by default** (no API keys):
 
-| Priority | Setup | Cost |
-|----------|--------|------|
-| 1 | **OCR.space** — set `OCR_SPACE_API_KEY` from [ocr.space/ocrapi](https://ocr.space/ocrapi) (or leave unset for demo key `helloworld`) | Free tier |
-| 2 | **Tesseract** local — OS package + `pytesseract` | Free |
-| 3 | `OPENAI_API_KEY` | Paid optional |
-| — | **Demo receipt** button | Always works |
+| Priority | Engine | Notes |
+|----------|--------|--------|
+| 1 | **RapidOCR** (`rapidocr-onnxruntime`) | `pip install` only — works offline after first model load |
+| 2 | **Tesseract** | Optional OS install |
+| 3 | OCR.space / OpenAI | Only if you set keys (off by default) |
+| — | **Demo receipt** | Always works |
 
-On Render: add env `OCR_SPACE_API_KEY` = your free key. Photos are parsed → review → confirm → written to the database.
+```powershell
+pip install rapidocr-onnxruntime onnxruntime Pillow
+# then restart Flask and photograph a receipt in Lens Mode
+```
+
+Tips for real fiscal receipts: good light, receipt flat, fill the frame, avoid blur. Always review the extracted total before confirm.
 
 ## Import your shop CSV
 

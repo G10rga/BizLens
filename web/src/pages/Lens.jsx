@@ -203,12 +203,12 @@ export default function Lens() {
 
       {ocrInfo && (
         <div className="card" style={{ marginBottom: '1rem', background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-          <strong>Free OCR</strong>
+          <strong>Local OCR (no API keys)</strong>
           <p className="muted" style={{ margin: '0.35rem 0 0' }}>
-            Tesseract: {ocrInfo.tesseract ? 'ready' : 'not installed'} · OCR.space:{' '}
-            {ocrInfo.ocr_space ? (ocrInfo.ocr_space_key_set ? 'API key set' : 'demo key') : 'off'}
-            {ocrInfo.openai_vision ? ' · OpenAI Vision optional' : ''}
-            . Photos use free OCR first — always review before confirm.
+            RapidOCR: {ocrInfo.rapidocr ? 'ready' : 'missing — pip install rapidocr-onnxruntime'} ·
+            Tesseract: {ocrInfo.tesseract ? 'ready' : 'optional'} ·
+            Cloud: {ocrInfo.ocr_space || ocrInfo.openai_vision ? 'optional key set' : 'off'}
+            . Runs on your machine — review totals before confirm.
           </p>
         </div>
       )}
