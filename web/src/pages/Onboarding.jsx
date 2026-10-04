@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { LanguageSwitcher, useI18n } from '../i18n'
@@ -201,6 +201,9 @@ export default function Onboarding() {
         <button className="btn" style={{ width: '100%', marginTop: '0.5rem' }} disabled={busy || (step === 1 && !profile.name)} onClick={next}>
           {busy ? t('common.saving') : step === 4 ? t('onboarding.finish') : t('common.next')}
         </button>
+        <p className="muted" style={{ marginTop: '1rem' }}>
+          <Link to="/">{t('landing.backHome')}</Link>
+        </p>
       </div>
     </div>
   )
