@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { LanguageSwitcher, useI18n } from '../i18n'
+import { ThemeToggle } from '../theme'
 
 export default function Register() {
   const { register, user, loading } = useAuth()
@@ -33,7 +34,10 @@ export default function Register() {
             <h1>{t('register.title')}</h1>
             <p className="muted">{t('register.subtitle')}</p>
           </div>
-          <LanguageSwitcher variant="light" />
+          <div className="auth-tools">
+            <LanguageSwitcher variant="light" />
+            <ThemeToggle />
+          </div>
         </div>
         {error && <div className="error">{error}</div>}
         <div className="field">

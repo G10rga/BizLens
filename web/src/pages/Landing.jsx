@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../auth'
 import { LanguageSwitcher, useI18n } from '../i18n'
+import { ThemeToggle } from '../theme'
 
 const FEATURES = [
   ['posTitle', 'posBody'],
@@ -29,6 +30,7 @@ export default function Landing() {
         </div>
         <div className="row">
           <LanguageSwitcher variant="light" />
+          <ThemeToggle />
           {signedIn ? (
             <Link className="btn" to={appPath}>{t('landing.openApp')}</Link>
           ) : (
