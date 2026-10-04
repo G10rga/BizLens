@@ -50,7 +50,10 @@ export default {
     status: 'Status',
     total: 'Total',
     language: 'Language',
+    menu: 'Menu',
+    closeMenu: 'Close menu',
   },
+  theme: { toggle: 'Appearance', light: 'Light', dark: 'Dark' },
   lang: { ka: 'ქართული', en: 'English' },
   nav: {
     home: 'Home',
