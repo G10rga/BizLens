@@ -1,6 +1,8 @@
-import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from './auth'
 import { LanguageSwitcher, useI18n } from './i18n'
+import { ThemeToggle } from './theme'
 
 const links = [
   { to: '/', key: 'nav.home' },
@@ -18,9 +20,57 @@ const links = [
 export default function Layout() {
   const { user, business, logout } = useAuth()
   const { t, money } = useI18n()
+  const location = useLocation()
+  const [navOpen, setNavOpen] = useState(false)
+
+  useEffect(() => {
+    setNavOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 1100) setNavOpen(false)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    document.body.classList.toggle('nav-locked', navOpen)
+    return () => document.body.classList.remove('nav-locked')
+  }, [navOpen])
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${navOpen ? ' nav-open' : ''}`}>
+      <header className="shell-top">
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label={t('common.menu')}
+          aria-expanded={navOpen}
+          onClick={() => setNavOpen(true)}
+        >
+          ☰
+        </button>
+        <Link to="/" className="brand-home shell-top-brand">
+          <div className="brand-mark">B</div>
+          <strong>{t('brand.name')}</strong>
+        </Link>
+        <div className="shell-top-tools">
+          <LanguageSwitcher />
+          <ThemeToggle variant="sidebar" />
+        </div>
+      </header>
+
+      {navOpen && (
+        <button
+          type="button"
+          className="nav-backdrop"
+          aria-label={t('common.closeMenu')}
+          onClick={() => setNavOpen(false)}
+        />
+      )}
+
       <aside className="sidebar">
         <div className="brand">
           <Link to="/" className="brand-home">
@@ -30,7 +80,18 @@ export default function Layout() {
               <span>{t('brand.tagline')}</span>
             </div>
           </Link>
+          <button
+            type="button"
+            className="icon-btn sidebar-close"
+            aria-label={t('common.closeMenu')}
+            onClick={() => setNavOpen(false)}
+          >
+            ×
+          </button>
+        </div>
+        <div className="sidebar-tools">
           <LanguageSwitcher />
+          <ThemeToggle variant="sidebar" />
         </div>
         {links.map((l) => (
           <NavLink
@@ -44,14 +105,14 @@ export default function Layout() {
         ))}
         <div className="sidebar-foot">
           <div>{business?.name || '—'}</div>
-          <div className="muted" style={{ color: 'rgba(255,255,255,0.7)' }}>
+          <div className="muted sidebar-muted">
             {t('nav.cashOnHand', { amount: money(business?.cash_on_hand) })}
           </div>
-          <div style={{ marginTop: '0.5rem' }}>{user?.email}</div>
-          <Link className="btn ghost" style={{ marginTop: '0.75rem', width: '100%', color: '#fff', borderColor: 'rgba(255,255,255,0.25)', textDecoration: 'none' }} to="/">
+          <div className="sidebar-email">{user?.email}</div>
+          <Link className="btn ghost sidebar-action" to="/">
             {t('nav.home')}
           </Link>
-          <button className="btn ghost" style={{ marginTop: '0.5rem', width: '100%', color: '#fff', borderColor: 'rgba(255,255,255,0.25)' }} onClick={logout}>
+          <button className="btn ghost sidebar-action" type="button" onClick={logout}>
             {t('common.logout')}
           </button>
         </div>
