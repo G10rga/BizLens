@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useAuth } from './auth'
 import { useI18n } from './i18n'
 import Layout from './Layout'
+import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Onboarding from './pages/Onboarding'
@@ -32,6 +33,7 @@ function Protected({ children, needOnboardingDone = true }) {
 export default function App() {
   return (
     <Routes>
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route
@@ -43,14 +45,12 @@ export default function App() {
         }
       />
       <Route
-        path="/"
         element={
           <Protected>
             <Layout />
           </Protected>
         }
       >
-        <Route index element={<Navigate to="/pos" replace />} />
         <Route path="pos" element={<Pos />} />
         <Route path="products" element={<Products />} />
         <Route path="today" element={<TodaySales />} />
@@ -61,7 +61,7 @@ export default function App() {
         <Route path="expenses" element={<Expenses />} />
         <Route path="settings" element={<Settings />} />
       </Route>
-      <Route path="*" element={<Navigate to="/pos" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
