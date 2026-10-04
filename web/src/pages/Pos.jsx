@@ -98,10 +98,10 @@ export default function Pos() {
       <div className="pos-layout">
         <div className="card">
           <input
+            className="search-input"
             placeholder={t('pos.search')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            style={{ width: '100%', marginBottom: '1rem', padding: '0.7rem', borderRadius: 8, border: '1px solid #cbd5e1' }}
           />
           {!filtered.length && <p className="muted">{t('pos.emptyProducts')}</p>}
           <div className="product-grid">
