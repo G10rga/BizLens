@@ -50,7 +50,10 @@ export default {
     status: 'სტატუსი',
     total: 'ჯამი',
     language: 'ენა',
+    menu: 'მენიუ',
+    closeMenu: 'მენიუს დახურვა',
   },
+  theme: { toggle: 'გარეგნობა', light: 'ღია', dark: 'მუქი' },
   lang: { ka: 'ქართული', en: 'English' },
   nav: {
     home: 'მთავარი',

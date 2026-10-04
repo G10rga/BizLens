@@ -28,6 +28,33 @@ function interpolate(str, vars) {
 
 const I18nContext = createContext(null)
 
+export const switchPairStyle = {
+  display: 'flex',
+  flexDirection: 'row',
+  flexGrow: 0,
+  flexShrink: 0,
+  alignItems: 'center',
+  height: 36,
+  minHeight: 36,
+  maxHeight: 36,
+  overflow: 'hidden',
+  boxSizing: 'border-box',
+}
+
+export const switchBtnStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flex: '1 1 0',
+  height: 36,
+  minHeight: 36,
+  maxHeight: 36,
+  margin: 0,
+  padding: '0 12px',
+  boxSizing: 'border-box',
+  lineHeight: 1,
+}
+
 export function I18nProvider({ children }) {
   const { user, refresh } = useAuth()
   const [lang, setLangState] = useState(readStoredLang)
@@ -113,12 +140,18 @@ export function LanguageSwitcher({ variant = 'dark' }) {
   const { lang, setLanguage, t } = useI18n()
 
   return (
-    <div className={`lang-switch ${variant}`} role="group" aria-label={t('common.language')}>
+    <div
+      className={`lang-switch ${variant}`}
+      role="group"
+      aria-label={t('common.language')}
+      style={switchPairStyle}
+    >
       <button
         type="button"
         className={lang === 'ka' ? 'active' : ''}
         aria-pressed={lang === 'ka'}
         onClick={() => setLanguage('ka')}
+        style={switchBtnStyle}
       >
         ქარ
       </button>
@@ -127,6 +160,7 @@ export function LanguageSwitcher({ variant = 'dark' }) {
         className={lang === 'en' ? 'active' : ''}
         aria-pressed={lang === 'en'}
         onClick={() => setLanguage('en')}
+        style={switchBtnStyle}
       >
         EN
       </button>

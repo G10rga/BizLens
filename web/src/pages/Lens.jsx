@@ -226,7 +226,7 @@ export default function Lens() {
       {success && <div className="success">{success}</div>}
 
       {ocrInfo && (
-        <div className="card" style={{ marginBottom: '1rem', background: '#f0fdf4', borderColor: '#bbf7d0' }}>
+        <div className="card" style={{ marginBottom: '1rem' }}>
           <strong>Local OCR (no API keys)</strong>
           <p className="muted" style={{ margin: '0.35rem 0 0' }}>
             RapidOCR: {ocrInfo.rapidocr ? 'ready' : 'missing — pip install rapidocr-onnxruntime'} ·
@@ -403,7 +403,7 @@ export default function Lens() {
                 onChange={(e) => setForm({ ...form, tin: e.target.value })}
               />
             </div>
-            <p style={{ fontWeight: 600, color: 'var(--pine)' }}>
+            <p style={{ fontWeight: 600, color: 'var(--heading)' }}>
               {t('lens.recordItems')}
             </p>
             <div className="row">
