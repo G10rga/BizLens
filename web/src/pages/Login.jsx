@@ -53,6 +53,9 @@ export default function Login() {
         <p className="muted" style={{ marginTop: '1rem' }}>
           {t('login.noAccount')} <Link to="/register">{t('login.register')}</Link>
         </p>
+        <p className="muted">
+          <Link to="/">{t('landing.backHome')}</Link>
+        </p>
       </form>
     </div>
   )
