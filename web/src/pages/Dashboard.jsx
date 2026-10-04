@@ -151,7 +151,7 @@ export default function Dashboard() {
       {data && (
         <>
           {data.backtest?.enabled && (
-            <div className="card" style={{ marginBottom: '1rem', background: '#fffbeb', borderColor: '#fde68a' }}>
+            <div className="card warn-note" style={{ marginBottom: '1rem' }}>
               <strong>{t('dashboard.backtestTitle')}</strong>
               <p className="muted" style={{ margin: '0.35rem 0 0' }}>
                 {t('dashboard.backtestBody', {
@@ -167,7 +167,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <h3 style={{ color: 'var(--pine)', margin: '0 0 0.5rem' }}>
+          <h3 className="section-title">
             {t('dashboard.futureSales')}
           </h3>
           <p className="muted" style={{ marginTop: 0 }}>
@@ -212,7 +212,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <h3 style={{ color: 'var(--pine)', margin: '0 0 0.5rem' }}>
+          <h3 className="section-title">
             {t('dashboard.cashTitle')}
           </h3>
           <p className="muted" style={{ marginTop: 0 }}>

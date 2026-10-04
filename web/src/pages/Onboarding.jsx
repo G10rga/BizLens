@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { LanguageSwitcher, useI18n } from '../i18n'
+import { ThemeToggle } from '../theme'
 
 const TYPE_KEYS = ['bakery', 'restaurant', 'retail', 'pharmacy', 'salon', 'other']
 const CITY_KEYS = ['Tbilisi', 'Batumi', 'Kutaisi', 'Other']
@@ -92,13 +93,16 @@ export default function Onboarding() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card" style={{ width: 'min(560px, 100%)' }}>
+      <div className="auth-card wide">
         <div className="auth-card-head">
           <div>
             <h1>{t('onboarding.title', { step })}</h1>
             <p className="muted">{t('onboarding.subtitle')}</p>
           </div>
-          <LanguageSwitcher variant="light" />
+          <div className="auth-tools">
+            <LanguageSwitcher variant="light" />
+            <ThemeToggle />
+          </div>
         </div>
         {error && <div className="error">{error}</div>}
 
