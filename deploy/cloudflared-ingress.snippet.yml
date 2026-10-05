@@ -1,0 +1,17 @@
+# Merge this hostname into /etc/cloudflared/config.yml (do not replace
+# existing hostnames). nginx listens on 8088; gunicorn on 8020
+# (8000/8001/8012 are already in use on the shared host).
+#
+#   sudo systemctl restart cloudflared
+#
+# Point DNS (once per tunnel):
+#   sudo cloudflared tunnel route dns <TUNNEL_NAME> bizlens.g1orga.dev
+
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: bizlens.g1orga.dev
+    service: http://127.0.0.1:8088
+  # keep your other hostnames here
+  - service: http_status:404
