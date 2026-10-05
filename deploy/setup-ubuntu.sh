@@ -86,6 +86,13 @@ fi
 sudo -u "${APP_USER}" "${APP_HOME}/.venv/bin/pip" install --upgrade pip
 sudo -u "${APP_USER}" "${APP_HOME}/.venv/bin/pip" install -r "${APP_HOME}/requirements.txt"
 
+# Default: PostgreSQL as main DB (set BIZLENS_USE_POSTGRES=0 to keep SQLite)
+USE_PG="${BIZLENS_USE_POSTGRES:-1}"
+if [[ "${USE_PG}" =~ ^(1|true|yes)$ ]]; then
+  echo "==> PostgreSQL"
+  bash "${APP_HOME}/deploy/setup-postgres.sh"
+fi
+
 if [[ ! -f "${APP_HOME}/.env" ]]; then
   SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
   JWT_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
@@ -112,6 +119,9 @@ sudo -u "${APP_USER}" bash -lc "
   test -f web/dist/index.html
 "
 install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_HOME}/backend/instance/uploads/lens"
+# App user must own instance/ (sqlite + CSV uploads) — root-owned dirs cause Errno 13
+chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/backend/instance"
+chmod -R u+rwX "${APP_HOME}/backend/instance"
 
 UNIT="/etc/systemd/system/bizlens.service"
 sed \
