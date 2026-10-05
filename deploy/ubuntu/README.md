@@ -126,7 +126,7 @@ sudo cp /root/.cloudflared/<TUNNEL_ID>.json /etc/cloudflared/
 sudo nano /etc/cloudflared/config.yml
 ```
 
-Use `deploy/ubuntu/cloudflared-config.example.yml` as the template (hostname `bizlens.g1orga.dev` → `http://127.0.0.1:8000`).
+Use `deploy/ubuntu/cloudflared-config.example.yml` as the template (hostname `bizlens.g1orga.dev` → `http://127.0.0.1:8088`).
 
 ```bash
 cloudflared tunnel route dns bizlens bizlens.g1orga.dev
