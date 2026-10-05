@@ -144,6 +144,19 @@ Files involved: `render.yaml`, `Procfile`, `runtime.txt`, `bin/render-build.sh`,
 - Free tier may sleep after idle; first request can be slow
 - Prefer **Python 3.11** (see `runtime.txt`); 3.14 often breaks Prophet
 
+## Host on Ubuntu + Cloudflare Tunnel (`bizlens.g1orga.dev`)
+
+Full guide: **[deploy/ubuntu/README.md](deploy/ubuntu/README.md)**
+
+Short version:
+
+1. Clone to `/opt/bizlens`, run `bash deploy/ubuntu/install.sh`
+2. `systemd` unit: `deploy/ubuntu/bizlens.service` → gunicorn on `127.0.0.1:8000`
+3. Cloudflare Tunnel route: hostname `bizlens.g1orga.dev` → `http://127.0.0.1:8000`
+4. `.env`: `FLASK_ENV=production`, `CORS_ORIGINS=https://bizlens.g1orga.dev`
+
+No public ports needed beyond SSH — Tunnel handles HTTPS.
+
 ## Python note
 
 Local Python 3.14 may skip Prophet. Production on Render uses **3.11** via `runtime.txt`. Install everything with:
