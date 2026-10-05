@@ -1,12 +1,11 @@
-# cloudflared config for https://bizlens.g1orga.dev
-# Install on the server as: /etc/cloudflared/config.yml
-# (token-based tunnels from Zero Trust dashboard may not need this file —
-#  use whichever method you prefer; see README.)
+# cloudflared → nginx unused port → gunicorn
+# Hostname: bizlens.g1orga.dev
+# nginx listens on 127.0.0.1:8088 (see nginx-bizlens.conf)
 
 tunnel: REPLACE_WITH_TUNNEL_ID
 credentials-file: /etc/cloudflared/REPLACE_WITH_TUNNEL_ID.json
 
 ingress:
   - hostname: bizlens.g1orga.dev
-    service: http://127.0.0.1:8000
+    service: http://127.0.0.1:8088
   - service: http_status:404
