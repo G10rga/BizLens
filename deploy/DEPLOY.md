@@ -69,7 +69,54 @@ sudo systemctl restart cloudflared
 
 ```bash
 cd /opt/bizlens
-sudo -u bizlens git pull --ff-only
+sudo -u bizlens git pull --ff-only origin main
 sudo -u bizlens bash deploy/install-app.sh
+sudo chown -R bizlens:bizlens /opt/bizlens/backend/instance
+sudo systemctl restart bizlens
+```
+
+## Optional: PostgreSQL (instead of SQLite)
+
+SQLite is fine for a single VPS. Postgres is optional (you already have `postgresql@16-main` on the host).
+
+```bash
+sudo apt install -y postgresql postgresql-contrib
+sudo systemctl enable --now postgresql
+
+DB_PASS="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'bizlens') THEN
+    CREATE ROLE bizlens LOGIN PASSWORD '${DB_PASS}';
+  ELSE
+    ALTER ROLE bizlens WITH PASSWORD '${DB_PASS}';
+  END IF;
+END
+\$\$;
+SELECT 'CREATE DATABASE bizlens OWNER bizlens'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'bizlens')\gexec
+GRANT ALL PRIVILEGES ON DATABASE bizlens TO bizlens;
+SQL
+sudo -u postgres psql -d bizlens -c 'GRANT ALL ON SCHEMA public TO bizlens;'
+
+# Point the app at Postgres (keeps existing .env keys)
+sudo -u bizlens bash -lc "
+  cd /opt/bizlens
+  grep -q '^DATABASE_URL=' .env && sed -i 's|^DATABASE_URL=.*|DATABASE_URL=postgresql://bizlens:${DB_PASS}@127.0.0.1:5432/bizlens|' .env \\
+    || echo 'DATABASE_URL=postgresql://bizlens:${DB_PASS}@127.0.0.1:5432/bizlens' >> .env
+"
+sudo systemctl restart bizlens
+```
+
+Fresh DB means login/demo users are recreated on next start if `DEMO_SEED=true`.
+
+## Fix: CSV import “Permission denied” on uploads
+
+Not Postgres — the `bizlens` user cannot write `backend/instance/uploads`:
+
+```bash
+sudo mkdir -p /opt/bizlens/backend/instance/uploads
+sudo chown -R bizlens:bizlens /opt/bizlens/backend/instance
 sudo systemctl restart bizlens
 ```
