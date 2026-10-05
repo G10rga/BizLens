@@ -87,7 +87,15 @@ def _clean_date_value(raw) -> pd.Timestamp | None:
 def _dataframe_from_bytes(data: bytes, filename: str = "") -> pd.DataFrame:
     name = (filename or "").lower()
     if name.endswith((".xlsx", ".xls", ".xlsm")):
-        return pd.read_excel(BytesIO(data))
+        try:
+            return pd.read_excel(BytesIO(data))
+        except ImportError as exc:
+            raise ValueError(
+                "Excel support missing on server (openpyxl). "
+                "Upload a .csv instead, or install: pip install openpyxl"
+            ) from exc
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"Could not read Excel file: {exc}") from exc
 
     # Try Excel anyway if binary-looking, else CSV
     try:
