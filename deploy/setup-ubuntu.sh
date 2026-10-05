@@ -112,6 +112,9 @@ sudo -u "${APP_USER}" bash -lc "
   test -f web/dist/index.html
 "
 install -d -o "${APP_USER}" -g "${APP_USER}" "${APP_HOME}/backend/instance/uploads/lens"
+# App user must own instance/ (sqlite + CSV uploads) — root-owned dirs cause Errno 13
+chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}/backend/instance"
+chmod -R u+rwX "${APP_HOME}/backend/instance"
 
 UNIT="/etc/systemd/system/bizlens.service"
 sed \

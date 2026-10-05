@@ -119,11 +119,18 @@ def import_csv(business):
         return jsonify({"error": "File is empty"}), 400
 
     upload_dir = Path(Config.UPLOAD_DIR)
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    save_path = upload_dir / f"{business.id}_{filename}"
+    try:
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        save_path = upload_dir / f"{business.id}_{filename}"
+        save_path.write_bytes(raw)
+    except OSError as exc:
+        # Don't block import if the upload archive can't be written (e.g. bad perms)
+        save_path = None
+        warnings_prefix = f"upload save skipped ({exc}); "
+    else:
+        warnings_prefix = ""
 
     try:
-        save_path.write_bytes(raw)
         if replace:
             DailySale.query.filter_by(business_id=business.id).delete()
             Alert.query.filter_by(business_id=business.id).delete()
@@ -136,13 +143,21 @@ def import_csv(business):
                 row["revenue"],
                 source="csv",
             )
+        msg_bits = []
+        if warnings_prefix:
+            msg_bits.append(warnings_prefix.strip("; "))
+        if replace:
+            msg_bits.append("replaced")
+        if warnings:
+            msg_bits.extend(warnings)
+        if not msg_bits:
+            msg_bits.append("OK")
         record = CsvImport(
             business_id=business.id,
             filename=filename,
             rows_imported=len(rows),
             status="completed",
-            message=("replaced; " if replace else "")
-            + ("; ".join(warnings) if warnings else "OK"),
+            message="; ".join(msg_bits),
         )
         db.session.add(record)
         db.session.commit()
@@ -152,6 +167,7 @@ def import_csv(business):
                 "rows_imported": len(rows),
                 "replaced": replace,
                 "warnings": warnings,
+                "file_saved": save_path is not None,
             }
         )
     except Exception as exc:  # noqa: BLE001
