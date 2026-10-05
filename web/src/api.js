@@ -26,7 +26,16 @@ export async function api(path, options = {}) {
   try {
     data = text ? JSON.parse(text) : null
   } catch {
-    data = { error: text || 'Invalid response' }
+    // Flask/nginx HTML error pages — don't dump markup into the UI
+    const stripped = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    const short =
+      stripped.slice(0, 180) ||
+      (res.status === 502
+        ? 'Server unavailable (502)'
+        : res.status === 500
+          ? 'Server error (500)'
+          : 'Invalid response')
+    data = { error: short }
   }
   if (!res.ok) {
     const err = new Error(data?.error || `Request failed (${res.status})`)
