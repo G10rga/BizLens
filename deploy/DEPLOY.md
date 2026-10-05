@@ -23,6 +23,8 @@ sudo git clone https://github.com/G10rga/BizLens.git /opt/bizlens
 
 ## 2. Install (app + systemd + nginx)
 
+Uses **Python 3.11** (deadsnakes) — system 3.13 cannot install Prophet / RapidOCR.
+
 ```bash
 cd /opt/bizlens
 sudo ./deploy/setup-ubuntu.sh
