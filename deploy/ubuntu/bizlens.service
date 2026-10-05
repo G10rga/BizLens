@@ -1,0 +1,29 @@
+[Unit]
+Description=BizLens (gunicorn)
+After=network.target
+
+[Service]
+Type=simple
+User=bizlens
+Group=bizlens
+WorkingDirectory=/opt/bizlens
+EnvironmentFile=/opt/bizlens/.env
+# Bind localhost only — Cloudflare Tunnel reaches this port
+ExecStart=/opt/bizlens/.venv/bin/gunicorn \
+  --chdir /opt/bizlens/backend \
+  run:app \
+  --bind 127.0.0.1:8000 \
+  --workers 1 \
+  --threads 4 \
+  --timeout 180 \
+  --access-logfile - \
+  --error-logfile -
+Restart=always
+RestartSec=3
+
+# Keep OCR subprocesses from taking the whole box down
+LimitNOFILE=65535
+MemoryMax=1500M
+
+[Install]
+WantedBy=multi-user.target
