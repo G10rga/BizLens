@@ -23,11 +23,21 @@ systemctl stop bizlens.service 2>/dev/null || true
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
+# Do NOT apt-install Ubuntu's `npm` — it pulls hundreds of node-* debs and can hang.
 apt-get install -y \
   python3 python3-venv python3-pip \
   git rsync curl build-essential \
   nginx \
-  nodejs npm
+  ca-certificates
+
+# Node.js + npm via NodeSource (single package). Skip if already present.
+if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+  echo "==> Installing Node.js 20 (NodeSource)"
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  apt-get install -y nodejs
+fi
+node --version
+npm --version
 
 # Prefer python3.11 when available (Prophet)
 PYTHON_BIN=python3
