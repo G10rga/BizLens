@@ -5,7 +5,7 @@ Public URL: **https://bizlens.g1orga.dev**
 Architecture:
 
 ```
-Internet → Cloudflare (TLS) → cloudflared on server → gunicorn 127.0.0.1:8000 → Flask + SPA
+Internet → Cloudflare (TLS) → cloudflared → nginx 127.0.0.1:8088 → gunicorn 127.0.0.1:8000 → Flask + SPA
 ```
 
 No open ports on the VPS are required if you use a Cloudflare Tunnel.
@@ -74,43 +74,45 @@ curl -sS http://127.0.0.1:8000/api/health
 
 ---
 
-## 3. systemd (keep the app running)
+## 3. systemd (gunicorn on 127.0.0.1:8000)
 
 ```bash
 sudo cp /opt/bizlens/deploy/ubuntu/bizlens.service /etc/systemd/system/bizlens.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now bizlens
 sudo systemctl status bizlens --no-pager
+curl -sS http://127.0.0.1:8000/api/health
 ```
 
-Logs:
+## 3b. nginx on unused port (127.0.0.1:8088)
+
+Same pattern as your other apps: nginx on a free local port, Tunnel points at nginx.
 
 ```bash
-sudo journalctl -u bizlens -f
+sudo apt install -y nginx
+sudo cp /opt/bizlens/deploy/ubuntu/nginx-bizlens.conf /etc/nginx/sites-available/bizlens
+sudo ln -sf /etc/nginx/sites-available/bizlens /etc/nginx/sites-enabled/bizlens
+# optional: remove default site if it conflicts
+# sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+curl -sS http://127.0.0.1:8088/api/health
 ```
 
-Update deploy later:
-
-```bash
-sudo -u bizlens -H bash -lc 'cd /opt/bizlens && git pull && bash deploy/ubuntu/install.sh'
-sudo systemctl restart bizlens
-```
-
----
+Change `8088` in `nginx-bizlens.conf` if that port is taken.
 
 ## 4. Cloudflare Tunnel → `bizlens.g1orga.dev`
 
 ### Option A — Zero Trust dashboard (easiest)
 
 1. Cloudflare Dashboard → **Zero Trust** → **Networks** → **Tunnels** → **Create tunnel**
-2. Name it e.g. `bizlens-vps`
-3. Install connector: copy the `cloudflared service install <TOKEN>` command and run it **on the Ubuntu server**
-4. Add a **Published application route**:
+2. Install connector on the VPS (`cloudflared service install <TOKEN>`)
+3. **Published application / Public hostname**:
    - Subdomain: `bizlens`
    - Domain: `g1orga.dev`
    - Service type: `HTTP`
-   - URL: `http://127.0.0.1:8000`
-5. Save — DNS for `bizlens.g1orga.dev` is created automatically (CNAME to the tunnel)
+   - URL: `http://127.0.0.1:8088`   ← nginx port (not 8000)
+4. Save — DNS CNAME is created automatically
 
 ### Option B — Config file
 
