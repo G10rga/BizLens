@@ -23,17 +23,37 @@ systemctl stop bizlens.service 2>/dev/null || true
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
+# Do NOT apt-install Ubuntu's `npm` — it pulls hundreds of node-* debs and can hang.
 apt-get install -y \
-  python3 python3-venv python3-pip \
+  software-properties-common \
   git rsync curl build-essential \
   nginx \
-  nodejs npm
+  ca-certificates
 
-# Prefer python3.11 when available (Prophet)
-PYTHON_BIN=python3
-if command -v python3.11 >/dev/null 2>&1; then
-  PYTHON_BIN=python3.11
+# Prophet + RapidOCR need Python 3.11/3.12 (not 3.13+). Prefer 3.11 via deadsnakes.
+if ! command -v python3.11 >/dev/null 2>&1; then
+  echo "==> Installing Python 3.11 (deadsnakes)"
+  add-apt-repository -y ppa:deadsnakes/ppa
+  apt-get update -y
+  apt-get install -y python3.11 python3.11-venv python3.11-dev
 fi
+apt-get install -y python3-pip || true
+
+PYTHON_BIN=python3.11
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+  echo "python3.11 is required (Prophet/RapidOCR). Install failed." >&2
+  exit 1
+fi
+echo "==> Using $($PYTHON_BIN --version)"
+
+# Node.js + npm via NodeSource (single package). Skip if already present.
+if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+  echo "==> Installing Node.js 20 (NodeSource)"
+  curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  apt-get install -y nodejs
+fi
+node --version
+npm --version
 
 if ! id -u "${APP_USER}" >/dev/null 2>&1; then
   useradd --system --home-dir "${APP_HOME}" --create-home --shell /usr/sbin/nologin "${APP_USER}"
@@ -51,7 +71,16 @@ if [[ "${REPO}" != "${APP_HOME}" ]]; then
 fi
 chown -R "${APP_USER}:${APP_USER}" "${APP_HOME}"
 
+# Recreate venv if missing or built with the wrong Python (e.g. system 3.13)
+NEED_VENV=0
 if [[ ! -d "${APP_HOME}/.venv" ]]; then
+  NEED_VENV=1
+elif ! "${APP_HOME}/.venv/bin/python" -c 'import sys; raise SystemExit(0 if sys.version_info[:2]==(3,11) else 1)' 2>/dev/null; then
+  echo "==> Recreating .venv with Python 3.11"
+  rm -rf "${APP_HOME}/.venv"
+  NEED_VENV=1
+fi
+if [[ "${NEED_VENV}" -eq 1 ]]; then
   sudo -u "${APP_USER}" "${PYTHON_BIN}" -m venv "${APP_HOME}/.venv"
 fi
 sudo -u "${APP_USER}" "${APP_HOME}/.venv/bin/pip" install --upgrade pip
