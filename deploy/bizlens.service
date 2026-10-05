@@ -1,6 +1,7 @@
 [Unit]
 Description=BizLens (gunicorn)
-After=network-online.target
+After=network-online.target postgresql.service
+Wants=postgresql.service
 
 [Service]
 Type=simple

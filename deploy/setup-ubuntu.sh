@@ -86,6 +86,13 @@ fi
 sudo -u "${APP_USER}" "${APP_HOME}/.venv/bin/pip" install --upgrade pip
 sudo -u "${APP_USER}" "${APP_HOME}/.venv/bin/pip" install -r "${APP_HOME}/requirements.txt"
 
+# Default: PostgreSQL as main DB (set BIZLENS_USE_POSTGRES=0 to keep SQLite)
+USE_PG="${BIZLENS_USE_POSTGRES:-1}"
+if [[ "${USE_PG}" =~ ^(1|true|yes)$ ]]; then
+  echo "==> PostgreSQL"
+  bash "${APP_HOME}/deploy/setup-postgres.sh"
+fi
+
 if [[ ! -f "${APP_HOME}/.env" ]]; then
   SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
   JWT_SECRET="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')"
