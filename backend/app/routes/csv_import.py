@@ -83,7 +83,14 @@ def preview(business):
     if not file.filename:
         return jsonify({"error": "Empty filename"}), 400
     raw = file.read()
-    rows, warnings = parse_sales_file(raw, filename=file.filename)
+    if not raw:
+        return jsonify({"error": "File is empty"}), 400
+    try:
+        rows, warnings = parse_sales_file(raw, filename=file.filename)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc) or "Could not parse file"}), 400
+    if not rows:
+        return jsonify({"error": "No valid Date/Total rows found"}), 400
     return jsonify(
         {
             "preview": rows[:30],
@@ -108,10 +115,15 @@ def import_csv(business):
     replace = (request.form.get("replace") or "false").lower() in {"1", "true", "yes"}
     filename = secure_filename(file.filename) or "upload.xlsx"
     raw = file.read()
-    save_path = Path(Config.UPLOAD_DIR) / f"{business.id}_{filename}"
-    save_path.write_bytes(raw)
+    if not raw:
+        return jsonify({"error": "File is empty"}), 400
+
+    upload_dir = Path(Config.UPLOAD_DIR)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    save_path = upload_dir / f"{business.id}_{filename}"
 
     try:
+        save_path.write_bytes(raw)
         if replace:
             DailySale.query.filter_by(business_id=business.id).delete()
             Alert.query.filter_by(business_id=business.id).delete()
@@ -143,13 +155,18 @@ def import_csv(business):
             }
         )
     except Exception as exc:  # noqa: BLE001
-        record = CsvImport(
-            business_id=business.id,
-            filename=filename,
-            rows_imported=0,
-            status="failed",
-            message=str(exc),
-        )
-        db.session.add(record)
-        db.session.commit()
-        return jsonify({"error": str(exc), "import": record.to_dict()}), 400
+        db.session.rollback()
+        try:
+            record = CsvImport(
+                business_id=business.id,
+                filename=filename,
+                rows_imported=0,
+                status="failed",
+                message=str(exc)[:500],
+            )
+            db.session.add(record)
+            db.session.commit()
+            return jsonify({"error": str(exc), "import": record.to_dict()}), 400
+        except Exception:  # noqa: BLE001
+            db.session.rollback()
+            return jsonify({"error": str(exc)}), 400
