@@ -146,16 +146,31 @@ Files involved: `render.yaml`, `Procfile`, `runtime.txt`, `bin/render-build.sh`,
 
 ## Host on Ubuntu + Cloudflare Tunnel (`bizlens.g1orga.dev`)
 
-Full guide: **[deploy/ubuntu/README.md](deploy/ubuntu/README.md)**
+Same layout as Teoria / Qalaqobana: nginx on an unused loopback port, merge the hostname into the **existing** Cloudflare Tunnel. Full steps: **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
 
-Short version:
+Nginx is not public — Cloudflare Tunnel publishes `bizlens.g1orga.dev` to nginx on **127.0.0.1:8088**, which proxies to gunicorn on **127.0.0.1:8020** (8000/8001/8012 stay free for your other apps).
 
-1. Clone to `/opt/bizlens`, run `bash deploy/ubuntu/install.sh`
-2. `systemd` unit: `deploy/ubuntu/bizlens.service` → gunicorn on `127.0.0.1:8000`
-3. Cloudflare Tunnel route: hostname `bizlens.g1orga.dev` → `http://127.0.0.1:8000`
-4. `.env`: `FLASK_ENV=production`, `CORS_ORIGINS=https://bizlens.g1orga.dev`
+```bash
+sudo mkdir -p /opt/bizlens
+sudo git clone https://github.com/G10rga/BizLens.git /opt/bizlens
+cd /opt/bizlens
+sudo ./deploy/setup-ubuntu.sh
+```
 
-No public ports needed beyond SSH — Tunnel handles HTTPS.
+Then add this hostname to `/etc/cloudflared/config.yml` without removing your other rules (see `deploy/cloudflared-ingress.snippet.yml`):
+
+```yaml
+  - hostname: bizlens.g1orga.dev
+    service: http://127.0.0.1:8088
+```
+
+```bash
+sudo cloudflared tunnel route dns <TUNNEL_NAME> bizlens.g1orga.dev
+sudo systemctl restart cloudflared
+curl -sS http://127.0.0.1:8088/api/health
+```
+
+If 8088 is also taken: `sudo BIZLENS_NGINX_PORT=8089 ./deploy/setup-ubuntu.sh` and point the tunnel at that port.
 
 ## Python note
 

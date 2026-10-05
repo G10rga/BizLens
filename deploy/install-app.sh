@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Install / update BizLens on Ubuntu (app only — Cloudflare Tunnel is separate).
-# Usage (as the app user, from repo root):
-#   bash deploy/ubuntu/install.sh
+# App-only update (venv + SPA). Prefer sudo ./deploy/setup-ubuntu.sh for first install.
+# Usage from repo root as the app user:
+#   bash deploy/install-app.sh
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-python3.11}"
@@ -23,16 +23,14 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 
 if [[ ! -f .env ]]; then
-  echo "==> Creating .env from deploy/ubuntu/env.production.example"
-  cp deploy/ubuntu/env.production.example .env
-  # Generate secrets if still placeholders
+  echo "==> Creating .env from deploy/env.production.example"
+  cp deploy/env.production.example .env
   if grep -q 'CHANGE_ME_SECRET' .env; then
     SEC="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
     JWT="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
     sed -i "s|CHANGE_ME_SECRET_KEY|$SEC|g" .env
     sed -i "s|CHANGE_ME_JWT_SECRET|$JWT|g" .env
   fi
-  echo "    Edit .env if you need Postgres / DEMO_SEED changes."
 fi
 
 echo "==> Building React SPA"
@@ -43,9 +41,6 @@ else
 fi
 npm --prefix web run build
 test -f web/dist/index.html
-
 mkdir -p backend/instance/uploads/lens
 
-echo "==> Done."
-echo "    Start (foreground): bash deploy/ubuntu/run-gunicorn.sh"
-echo "    Or enable systemd (see deploy/ubuntu/README.md)"
+echo "==> Done. Restart: sudo systemctl restart bizlens"
