@@ -106,10 +106,10 @@ export default function Pos() {
           {!filtered.length && <p className="muted">{t('pos.emptyProducts')}</p>}
           <div className="product-grid">
             {filtered.map((p) => (
-              <button key={p.id} type="button" className="product-tile" onClick={() => add(p)}>
+              <button key={p.id} type="button" className="product-tile" title={p.name} onClick={() => add(p)}>
                 <strong>{p.name}</strong>
                 <div className="price">{money(p.price)}</div>
-                {p.category && <div className="muted" style={{ fontSize: '0.8rem' }}>{p.category}</div>}
+                <div className="muted tile-cat">{p.category || '\u00a0'}</div>
               </button>
             ))}
           </div>

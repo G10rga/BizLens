@@ -1,0 +1,36 @@
+# BizLens on Render — https://render.com
+# Blueprint: New → Blueprint → connect this repo
+
+databases:
+  - name: bizlens-db
+    plan: free
+
+services:
+  - type: web
+    name: bizlens
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    pythonVersion: "3.11.11"
+    buildCommand: bash bin/render-build.sh
+    startCommand: bash bin/render-start.sh
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.11"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: DEMO_SEED
+        value: "true"
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: FLASK_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bizlens-db
+          property: connectionString
+      # Lens OCR is local (RapidOCR) — no keys required
