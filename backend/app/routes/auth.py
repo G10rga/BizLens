@@ -3,6 +3,7 @@ from flask_jwt_extended import create_access_token, jwt_required
 
 from ..extensions import db
 from ..models import Business, User
+from ..validation import validate_register
 from .helpers import current_user
 
 bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -14,9 +15,9 @@ def register():
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
     full_name = (data.get("full_name") or "").strip() or None
-
-    if not email or not password:
-        return jsonify({"error": "Email and password are required"}), 400
+    err = validate_register(data)
+    if err:
+        return jsonify({"error": err}), 400
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email already registered"}), 409
 
