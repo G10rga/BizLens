@@ -56,10 +56,6 @@ export default function Layout() {
           <div className="brand-mark">B</div>
           <strong>{t('brand.name')}</strong>
         </Link>
-        <div className="shell-top-tools">
-          <LanguageSwitcher />
-          <ThemeToggle variant="sidebar" />
-        </div>
       </header>
 
       {navOpen && (
@@ -91,7 +87,7 @@ export default function Layout() {
         </div>
         <div className="sidebar-tools">
           <LanguageSwitcher />
-          <ThemeToggle variant="sidebar" />
+          <ThemeToggle variant="dark" />
         </div>
         {links.map((l) => (
           <NavLink

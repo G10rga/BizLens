@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { useI18n, switchPairStyle, switchBtnStyle } from './i18n'
+import { useI18n } from './i18n'
 
 const THEME_KEY = 'bizlens_theme'
 
@@ -58,23 +58,17 @@ export function useTheme() {
   return ctx
 }
 
-export function ThemeToggle({ variant = 'surface' }) {
+export function ThemeToggle({ variant = 'light' }) {
   const { theme, setTheme } = useTheme()
   const { t } = useI18n()
 
   return (
-    <div
-      className={`theme-switch ${variant}`}
-      role="group"
-      aria-label={t('theme.toggle')}
-      style={switchPairStyle}
-    >
+    <div className={`lang-switch ${variant}`} role="group" aria-label={t('theme.toggle')}>
       <button
         type="button"
         className={theme === 'light' ? 'active' : ''}
         aria-pressed={theme === 'light'}
         onClick={() => setTheme('light')}
-        style={switchBtnStyle}
       >
         {t('theme.light')}
       </button>
@@ -83,7 +77,6 @@ export function ThemeToggle({ variant = 'surface' }) {
         className={theme === 'dark' ? 'active' : ''}
         aria-pressed={theme === 'dark'}
         onClick={() => setTheme('dark')}
-        style={switchBtnStyle}
       >
         {t('theme.dark')}
       </button>
