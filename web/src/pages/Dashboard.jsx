@@ -15,6 +15,31 @@ import { useI18n } from '../i18n'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend)
 
+/** Draw a vertical divider where history ends and forecast begins. */
+const forecastDividerPlugin = {
+  id: 'forecastDivider',
+  afterDraw(chart) {
+    const idx = chart.options.plugins?.forecastDivider?.atIndex
+    if (idx == null || idx < 0) return
+    const { ctx, chartArea, scales } = chart
+    const xScale = scales.x
+    if (!xScale || !chartArea) return
+    const x = xScale.getPixelForValue(idx)
+    if (x < chartArea.left || x > chartArea.right) return
+    ctx.save()
+    ctx.strokeStyle = 'rgba(100, 116, 139, 0.55)'
+    ctx.setLineDash([6, 4])
+    ctx.lineWidth = 1.5
+    ctx.beginPath()
+    ctx.moveTo(x, chartArea.top)
+    ctx.lineTo(x, chartArea.bottom)
+    ctx.stroke()
+    ctx.restore()
+  },
+}
+
+ChartJS.register(forecastDividerPlugin)
+
 export default function Dashboard() {
   const { t, money, lang } = useI18n()
   const [data, setData] = useState(null)
@@ -34,42 +59,53 @@ export default function Dashboard() {
 
   const chart = useMemo(() => {
     if (!data) return null
-    const hist = data.history.slice(-45)
-    const labels = [
-      ...hist.map((h) => h.date.slice(5)),
-      ...data.timeline.map((x) => x.date.slice(5)),
-    ]
+    // Prefer up to ~90 days of real history so the chart isn't mostly forecast
+    const hist = data.history.slice(-90)
+    const histLen = hist.length
 
     if (view === 'sales') {
       const incomeKey =
         scenario === 'best' ? 'income_best' : scenario === 'worst' ? 'income_worst' : 'income_likely'
+      const labels = [
+        ...hist.map((h) => h.date.slice(5)),
+        ...data.timeline.map((x) => x.date.slice(5)),
+      ]
+      // Bridge: last historical point repeated at forecast start so the line connects
+      const lastHist = hist.length ? hist[hist.length - 1].revenue : null
       return {
         labels,
+        dividerIndex: histLen > 0 ? histLen - 0.5 : null,
         datasets: [
           {
             label: t('dashboard.histSales'),
-            data: [...hist.map((h) => h.revenue), ...data.timeline.map(() => null)],
-            borderColor: '#64748b',
+            data: [
+              ...hist.map((h) => h.revenue),
+              ...data.timeline.map((_, i) => (i === 0 ? lastHist : null)),
+            ],
+            borderColor: '#0f172a',
             backgroundColor: 'transparent',
-            tension: 0.2,
+            tension: 0.15,
             pointRadius: 0,
-            borderWidth: 2,
+            borderWidth: 2.5,
+            spanGaps: false,
           },
           {
             label: t('dashboard.futureSalesLine'),
             data: [...hist.map(() => null), ...data.timeline.map((x) => x[incomeKey])],
             borderColor: scenario === 'worst' ? '#ef4444' : scenario === 'best' ? '#10b981' : '#1b4332',
-            backgroundColor: 'rgba(16,185,129,0.10)',
+            borderDash: [6, 4],
+            backgroundColor: 'rgba(16,185,129,0.08)',
             fill: false,
             tension: 0.15,
             pointRadius: 0,
             borderWidth: 2,
+            spanGaps: false,
           },
           {
             label: t('dashboard.rangeLow'),
             data: [...hist.map(() => null), ...data.timeline.map((x) => x.income_worst)],
             borderColor: 'rgba(239,68,68,0.35)',
-            borderDash: [4, 4],
+            borderDash: [3, 3],
             pointRadius: 0,
             borderWidth: 1,
             fill: false,
@@ -79,7 +115,7 @@ export default function Dashboard() {
             label: t('dashboard.rangeHigh'),
             data: [...hist.map(() => null), ...data.timeline.map((x) => x.income_best)],
             borderColor: 'rgba(16,185,129,0.45)',
-            borderDash: [4, 4],
+            borderDash: [3, 3],
             pointRadius: 0,
             borderWidth: 1,
             fill: '-1',
@@ -90,21 +126,52 @@ export default function Dashboard() {
       }
     }
 
+    // Cash view: projected balance + real scheduled expense drops
     const cashKey =
       scenario === 'best' ? 'cash_best' : scenario === 'worst' ? 'cash_worst' : 'cash_likely'
     const todayCash = data.summary.cash_today
+    const labels = [t('dashboard.todayLabel'), ...data.timeline.map((x) => x.date.slice(5))]
+    const cashSeries = [todayCash, ...data.timeline.map((x) => x[cashKey])]
+    const expenseByDate = Object.fromEntries(
+      (data.expense_markers || []).map((m) => [m.date, m.amount]),
+    )
+    const expensePoints = [
+      null,
+      ...data.timeline.map((x) => (expenseByDate[x.date] != null ? x[cashKey] : null)),
+    ]
+
     return {
+<<<<<<< main
+      labels,
+      dividerIndex: 0.5,
+      datasets: [
+        {
+          label: t('dashboard.cashBalanceProjected'),
+          data: cashSeries,
+=======
       labels: [t('dashboard.todayLabel'), ...data.timeline.map((x) => x.date.slice(5))],
       datasets: [
         {
           label: t('dashboard.cashBalance'),
           data: [todayCash, ...data.timeline.map((x) => x[cashKey])],
+>>>>>>> cursor/ka-en-language-switcher
           borderColor: scenario === 'worst' ? '#ef4444' : scenario === 'best' ? '#10b981' : '#1b4332',
-          backgroundColor: 'rgba(27,67,50,0.1)',
+          backgroundColor: 'rgba(27,67,50,0.08)',
           fill: true,
-          tension: 0.25,
+          tension: 0.2,
           pointRadius: 0,
           borderWidth: 2,
+          borderDash: [5, 4],
+        },
+        {
+          label: t('dashboard.expenseDrops'),
+          data: expensePoints,
+          borderColor: '#dc2626',
+          backgroundColor: '#dc2626',
+          showLine: false,
+          pointRadius: expensePoints.map((v) => (v == null ? 0 : 4)),
+          pointHoverRadius: 6,
+          order: 0,
         },
       ],
     }
@@ -276,6 +343,9 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
+            <p className="muted" style={{ marginTop: 0, marginBottom: '0.75rem' }}>
+              {view === 'sales' ? t('dashboard.chartSalesHint') : t('dashboard.chartCashHint')}
+            </p>
             <div className="chart-wrap">
               {chart && (
                 <Line
@@ -283,7 +353,20 @@ export default function Dashboard() {
                   options={{
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom' } },
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                      legend: { position: 'bottom' },
+                      forecastDivider: { atIndex: chart.dividerIndex },
+                      tooltip: {
+                        callbacks: {
+                          label(ctx) {
+                            const v = ctx.parsed?.y
+                            if (v == null || Number.isNaN(v)) return undefined
+                            return `${ctx.dataset.label}: ${money(v)}`
+                          },
+                        },
+                      },
+                    },
                     scales: {
                       y: { ticks: { callback: (v) => `${v} ₾` } },
                     },
