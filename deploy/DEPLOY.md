@@ -73,9 +73,29 @@ sudo systemctl restart cloudflared
 
 ```bash
 cd /opt/bizlens
-sudo -u bizlens git pull --ff-only origin main
-sudo -u bizlens bash deploy/install-app.sh
+sudo -u bizlens -H bash -lc '
+  git fetch origin main
+  git checkout main
+  # Prefer fast-forward; if main was force-pushed / diverged, hard-reset to GitHub
+  git pull --ff-only origin main || git reset --hard origin/main
+  bash deploy/install-app.sh
+'
 sudo chown -R bizlens:bizlens /opt/bizlens/backend/instance
+sudo systemctl restart bizlens
+```
+
+`.env`, `.venv`, and `backend/instance/` are kept (not in git).  
+After a UI change, hard-refresh the browser (or clear cache) so old Vite JS isn’t cached.
+
+If `git pull --ff-only` says *diverged* / *Not possible to fast-forward*, the site was rebuilt from **old local commits**. Fix with:
+
+```bash
+cd /opt/bizlens
+sudo -u bizlens -H bash -lc '
+  git fetch origin main
+  git reset --hard origin/main
+  bash deploy/install-app.sh
+'
 sudo systemctl restart bizlens
 ```
 
