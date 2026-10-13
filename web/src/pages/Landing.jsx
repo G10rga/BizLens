@@ -369,7 +369,7 @@ export default function Landing() {
                 </div>
                 <div>
                   <span>{t('landing.forecastBand')}</span>
-                  <strong>5,200 — 8,100 ₾</strong>
+                  <strong>5,200 - 8,100 ₾</strong>
                 </div>
               </div>
               <ForecastChart />
@@ -386,7 +386,7 @@ export default function Landing() {
               </div>
               <div className="lp-range-card">
                 <span>{t('landing.forecastRange')}</span>
-                <strong>24,000 — 33,000 ₾</strong>
+                <strong>24,000 - 33,000 ₾</strong>
               </div>
               <p className="lp-preview-note">{t('landing.forecastStar')}</p>
             </article>
