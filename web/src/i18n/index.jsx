@@ -120,7 +120,7 @@ export function LanguageSwitcher({ variant = 'dark' }) {
         aria-pressed={lang === 'ka'}
         onClick={() => setLanguage('ka')}
       >
-        ქარ
+        KA
       </button>
       <button
         type="button"

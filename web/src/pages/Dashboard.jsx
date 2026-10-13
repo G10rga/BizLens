@@ -141,12 +141,12 @@ export default function Dashboard() {
     ]
 
     return {
-
-      labels: [t('dashboard.todayLabel'), ...data.timeline.map((x) => x.date.slice(5))],
+      labels,
+      dividerIndex: 0.5,
       datasets: [
         {
           label: t('dashboard.cashBalance'),
-          data: [todayCash, ...data.timeline.map((x) => x[cashKey])],
+          data: cashSeries,
           borderColor: scenario === 'worst' ? '#ef4444' : scenario === 'best' ? '#10b981' : '#1b4332',
           backgroundColor: 'rgba(27,67,50,0.08)',
           fill: true,

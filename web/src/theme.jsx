@@ -58,6 +58,21 @@ export function useTheme() {
   return ctx
 }
 
+export function ThemeIconButton() {
+  const { theme, toggleTheme } = useTheme()
+  const { t } = useI18n()
+  return (
+    <button
+      type="button"
+      className="lp-icon-btn"
+      aria-label={t('theme.toggle')}
+      onClick={toggleTheme}
+    >
+      {theme === 'dark' ? '☀' : '☼'}
+    </button>
+  )
+}
+
 export function ThemeToggle({ variant = 'light' }) {
   const { theme, setTheme } = useTheme()
   const { t } = useI18n()
