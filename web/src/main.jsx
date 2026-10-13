@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './auth'
 import { I18nProvider } from './i18n'
+import { ThemeProvider } from './theme'
 import './styles.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -11,7 +12,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <AuthProvider>
         <I18nProvider>
-          <App />
+          <ThemeProvider>
+            <App />
+          </ThemeProvider>
         </I18nProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -5,6 +5,7 @@ from flask_jwt_extended import jwt_required
 
 from ..extensions import db
 from ..models import Business, FixedExpense, SupplierPayment
+from ..validation import parse_money, validate_business_name, validate_due_day
 from .helpers import current_user
 
 bp = Blueprint("onboarding", __name__, url_prefix="/api/onboarding")
@@ -19,15 +20,16 @@ def save_profile():
     user = current_user()
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
-    business_type = (data.get("business_type") or "other").strip().lower()
-    city = data.get("city") or "Tbilisi"
+    business_type = (data.get("business_type") or "").strip().lower()
+    city = (data.get("city") or "").strip()
 
-    if not name:
-        return jsonify({"error": "Business name is required"}), 400
+    name_err = validate_business_name(name)
+    if name_err:
+        return jsonify({"error": name_err}), 400
     if business_type not in VALID_TYPES:
-        return jsonify({"error": f"business_type must be one of {sorted(VALID_TYPES)}"}), 400
+        return jsonify({"error": "Select a business type"}), 400
     if city not in VALID_CITIES:
-        city = "Other"
+        return jsonify({"error": "Select a city"}), 400
 
     business = user.business
     if business is None:
@@ -53,11 +55,13 @@ def save_expenses():
     FixedExpense.query.filter_by(business_id=user.business.id).delete()
     for item in items:
         name = (item.get("name") or "").strip()
-        amount = float(item.get("amount") or 0)
-        due_day = int(item.get("due_day") or 1)
+        try:
+            amount = parse_money(item.get("amount"), min_value=0)
+            due_day = validate_due_day(item.get("due_day") or 1)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
         if not name or amount <= 0:
             continue
-        due_day = min(max(due_day, 1), 28)
         db.session.add(
             FixedExpense(
                 business_id=user.business.id,
@@ -84,12 +88,22 @@ def save_suppliers():
     SupplierPayment.query.filter_by(business_id=user.business.id).delete()
     if not skip:
         for item in items:
-            name = (item.get("name") or "").strip() or "Supplier"
-            amount = float(item.get("amount") or 0)
-            every_n_days = int(item.get("every_n_days") or 14)
-            next_due = item.get("next_due_date") or date.today().isoformat()
-            if amount <= 0:
+            name = (item.get("name") or "").strip()
+            amount_raw = item.get("amount")
+            n_raw = item.get("every_n_days")
+            any_filled = bool(name or str(amount_raw or "").strip() or str(n_raw or "").strip())
+            if not any_filled:
                 continue
+            if not 2 <= len(name) <= 80:
+                return jsonify({"error": "Supplier name must be 2–80 characters"}), 400
+            try:
+                amount = parse_money(amount_raw, min_value=0.01)
+                every_n_days = int(n_raw)
+            except (TypeError, ValueError):
+                return jsonify({"error": "Supplier amount and schedule are required"}), 400
+            if not 1 <= every_n_days <= 365:
+                return jsonify({"error": "Every N days must be a whole number from 1 to 365"}), 400
+            next_due = item.get("next_due_date") or date.today().isoformat()
             db.session.add(
                 SupplierPayment(
                     business_id=user.business.id,
@@ -111,7 +125,10 @@ def save_cash():
     if not user.business:
         return jsonify({"error": "Create business profile first"}), 400
     data = request.get_json(silent=True) or {}
-    cash = float(data.get("cash_on_hand") or 0)
+    try:
+        cash = parse_money(data.get("cash_on_hand"), min_value=0)
+    except ValueError:
+        return jsonify({"error": "Cash on hand must be 0 or more, with up to 2 decimals"}), 400
     user.business.cash_on_hand = cash
     user.business.cash_baseline_date = date.today()
     user.business.onboarding_complete = True

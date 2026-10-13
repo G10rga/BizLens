@@ -83,7 +83,14 @@ def preview(business):
     if not file.filename:
         return jsonify({"error": "Empty filename"}), 400
     raw = file.read()
-    rows, warnings = parse_sales_file(raw, filename=file.filename)
+    if not raw:
+        return jsonify({"error": "File is empty"}), 400
+    try:
+        rows, warnings = parse_sales_file(raw, filename=file.filename)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": str(exc) or "Could not parse file"}), 400
+    if not rows:
+        return jsonify({"error": "No valid Date/Total rows found"}), 400
     return jsonify(
         {
             "preview": rows[:30],
@@ -108,8 +115,20 @@ def import_csv(business):
     replace = (request.form.get("replace") or "false").lower() in {"1", "true", "yes"}
     filename = secure_filename(file.filename) or "upload.xlsx"
     raw = file.read()
-    save_path = Path(Config.UPLOAD_DIR) / f"{business.id}_{filename}"
-    save_path.write_bytes(raw)
+    if not raw:
+        return jsonify({"error": "File is empty"}), 400
+
+    upload_dir = Path(Config.UPLOAD_DIR)
+    try:
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        save_path = upload_dir / f"{business.id}_{filename}"
+        save_path.write_bytes(raw)
+    except OSError as exc:
+        # Don't block import if the upload archive can't be written (e.g. bad perms)
+        save_path = None
+        warnings_prefix = f"upload save skipped ({exc}); "
+    else:
+        warnings_prefix = ""
 
     try:
         if replace:
@@ -124,13 +143,21 @@ def import_csv(business):
                 row["revenue"],
                 source="csv",
             )
+        msg_bits = []
+        if warnings_prefix:
+            msg_bits.append(warnings_prefix.strip("; "))
+        if replace:
+            msg_bits.append("replaced")
+        if warnings:
+            msg_bits.extend(warnings)
+        if not msg_bits:
+            msg_bits.append("OK")
         record = CsvImport(
             business_id=business.id,
             filename=filename,
             rows_imported=len(rows),
             status="completed",
-            message=("replaced; " if replace else "")
-            + ("; ".join(warnings) if warnings else "OK"),
+            message="; ".join(msg_bits),
         )
         db.session.add(record)
         db.session.commit()
@@ -140,16 +167,22 @@ def import_csv(business):
                 "rows_imported": len(rows),
                 "replaced": replace,
                 "warnings": warnings,
+                "file_saved": save_path is not None,
             }
         )
     except Exception as exc:  # noqa: BLE001
-        record = CsvImport(
-            business_id=business.id,
-            filename=filename,
-            rows_imported=0,
-            status="failed",
-            message=str(exc),
-        )
-        db.session.add(record)
-        db.session.commit()
-        return jsonify({"error": str(exc), "import": record.to_dict()}), 400
+        db.session.rollback()
+        try:
+            record = CsvImport(
+                business_id=business.id,
+                filename=filename,
+                rows_imported=0,
+                status="failed",
+                message=str(exc)[:500],
+            )
+            db.session.add(record)
+            db.session.commit()
+            return jsonify({"error": str(exc), "import": record.to_dict()}), 400
+        except Exception:  # noqa: BLE001
+            db.session.rollback()
+            return jsonify({"error": str(exc)}), 400

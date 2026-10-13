@@ -217,29 +217,44 @@ def _raw_forecast_from_params(
     )
     expected_daily = max(expected_daily, 1.0)
 
+    # Scale all weeks by one global mean so stronger/weaker historical weeks
+    # keep their relative amplitude (per-week normalize made every week identical).
+    tmpl_avgs = [float(np.mean(t)) for t in templates if float(np.mean(t)) > 1e-6]
+    global_tmpl_avg = float(np.mean(tmpl_avgs)) if tmpl_avgs else expected_daily
+    global_tmpl_avg = max(global_tmpl_avg, 1e-6)
+
+    # Same-weekday residual spread from history (for natural day-to-day wobble)
+    dow_resid_std = np.zeros(7)
+    if filled is not None and not filled.empty:
+        tmp = filled.copy()
+        tmp["dow"] = tmp["ds"].dt.dayofweek
+        for dow in range(7):
+            vals = tmp.loc[tmp["dow"] == dow, "y"].to_numpy(dtype=float)
+            if len(vals) >= 4:
+                dow_resid_std[dow] = float(np.std(vals)) * 0.15
+
     out: List[dict] = []
     for i in range(horizon):
         d = start + timedelta(days=i)
         dow = d.weekday()
         geo = daily_seasonality_factor(d, business_type)
-        geo_soft = 1.0 + (geo - 1.0) * 0.2
+        geo_soft = 1.0 + (geo - 1.0) * 0.25
         level_scale = ((1.0 + daily_drift) ** i) * geo_soft
 
         if templates:
-            # Cycle through real weeks (recent first), so the chart isn't identical every week
+            # Replay real weeks newest → older so successive forecast weeks differ
             tmpl = templates[-(1 + (i // 7) % len(templates))]
-            tmpl_avg = float(np.mean(tmpl)) if float(np.mean(tmpl)) > 1e-6 else expected_daily
-            # Scale this historical week to the forecast level
-            week_scale = (expected_daily * level_scale) / tmpl_avg
+            week_scale = (expected_daily * level_scale) / global_tmpl_avg
             yhat = float(tmpl[dow]) * week_scale
-            # Bands from same-weekday history, also scaled toward forecast level
+            # Tiny deterministic wobble from historical same-dow spread (stable across runs)
+            wobble = dow_resid_std[dow] * week_scale * (0.35 if (i + dow) % 3 == 0 else -0.2 if (i + dow) % 3 == 1 else 0.1)
+            yhat = max(0.0, yhat + wobble)
             y_low = float(dow_low[dow]) * week_scale
             y_high = float(dow_high[dow]) * week_scale
-            # Keep bands around yhat
-            yhat_lower = min(yhat, y_low) * 0.5 + yhat * 0.5 * 0.85
-            yhat_upper = max(yhat, y_high) * 0.5 + yhat * 0.5 * 1.15
-            yhat_lower = min(yhat_lower, yhat * 0.92)
-            yhat_upper = max(yhat_upper, yhat * 1.08)
+            yhat_lower = min(yhat, y_low) * 0.55 + yhat * 0.45 * 0.88
+            yhat_upper = max(yhat, y_high) * 0.55 + yhat * 0.45 * 1.12
+            yhat_lower = min(yhat_lower, yhat * 0.9)
+            yhat_upper = max(yhat_upper, yhat * 1.1)
         else:
             yhat = base * float(weekly[dow]) * float(open_prob[dow]) * level_scale
             yhat_lower = yhat * 0.85
