@@ -39,7 +39,7 @@ function ForecastChart() {
 }
 
 const MOCK = [
-  { name: 'რიყე', cat: 'ჩირის ნაწარმი', meta: '1 ცალი · 3.2%', price: 4.8, qty: 2 },
+  { name: 'ჩირი', cat: 'ჩირის ნაწარმი', meta: '1 ცალი · 3.2%', price: 4.8, qty: 2 },
   { name: 'შოთის პური', cat: 'პურეული', meta: '1 ცალი', price: 2.5, qty: 1 },
   { name: 'კექსები', cat: 'საცხობი', meta: '10 ცალი', price: 7.2, qty: 1 },
   { name: 'წყალი', cat: 'სასმელი', meta: '500 მლ', price: 1.5, qty: 3 },
@@ -250,10 +250,10 @@ export default function Landing() {
             <p>{t('landing.lensBody')}</p>
             <div className="lp-receipt">
               <div className="lp-receipt-paper">
-                <strong>მზიური საცხობი</strong>
-                <span>ფისკალური ქვითარი · #0048</span>
+                <strong>საცხობი "მზიური"</strong>
+                <span>ქვითარი · #0048</span>
                 <ul>
-                  <li><span>რიყე × 2</span><b>9.60 ₾</b></li>
+                  <li><span>ჩირი × 2</span><b>9.60 ₾</b></li>
                   <li><span>შოთის პური</span><b>2.50 ₾</b></li>
                   <li><span>კექსები</span><b>7.20 ₾</b></li>
                   <li><span>წყალი × 3</span><b>4.50 ₾</b></li>
