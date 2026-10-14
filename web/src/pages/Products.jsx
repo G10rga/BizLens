@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, authMediaUrl } from '../api'
+import BarcodePreview from '../components/BarcodePreview'
 import { useI18n } from '../i18n'
 
 const empty = { name: '', price: '', category: '', barcode: '' }
@@ -121,6 +122,25 @@ export default function Products() {
   const previewSrc = imagePreview || (!clearImage && existingImageUrl ? authMediaUrl(existingImageUrl) : null)
   const active = products.filter((p) => p.active)
 
+  const printBarcode = () => {
+    const svg = document.getElementById('product-barcode-svg')
+    if (!svg) return
+    const win = window.open('', '_blank', 'noopener,noreferrer,width=520,height=360')
+    if (!win) return
+    win.document.write(`<!doctype html><html><head><title>${form.barcode.trim()}</title>
+      <style>
+        body{margin:24px;display:grid;place-items:center;font-family:system-ui,sans-serif}
+        svg{max-width:100%;height:auto}
+        p{margin:8px 0 0;text-align:center;font-size:14px;letter-spacing:0.04em}
+      </style></head><body>
+      ${svg.outerHTML}
+      <p>${form.name.trim() || form.barcode.trim()}</p>
+      </body></html>`)
+    win.document.close()
+    win.focus()
+    win.print()
+  }
+
   return (
     <>
       <div className="topbar">
@@ -206,15 +226,22 @@ export default function Products() {
                 {t('products.generateBarcode')}
               </button>
             </div>
-            {form.barcode && (
-              <button
-                type="button"
-                className="btn ghost"
-                style={{ marginTop: '0.45rem' }}
-                onClick={() => setForm({ ...form, barcode: '' })}
-              >
-                {t('products.clearBarcode')}
-              </button>
+            {form.barcode.trim() && (
+              <div className="barcode-preview-wrap">
+                <BarcodePreview value={form.barcode.trim()} svgId="product-barcode-svg" />
+                <div className="row" style={{ gap: '0.5rem', marginTop: '0.45rem', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn ghost" onClick={printBarcode}>
+                    {t('products.printBarcode')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() => setForm({ ...form, barcode: '' })}
+                  >
+                    {t('products.clearBarcode')}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
           <div className="row">

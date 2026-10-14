@@ -324,6 +324,7 @@ export default {
     barcodePlaceholder: 'მაგ. 4780123456789',
     generateBarcode: 'გენერაცია',
     clearBarcode: 'გასუფთავება',
+    printBarcode: 'შტრიხკოდის ბეჭდვა',
     barcodeCol: 'შტრიხკოდი',
     image: 'ფოტო (არასავალდებულო)',
     imageHint: 'გამოჩნდება POS პროდუქტის ბარათებზე.',

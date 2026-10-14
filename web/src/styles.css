@@ -631,6 +631,41 @@ html[data-theme="dark"] .tile-qty {
   color: var(--muted);
   font-size: 0.85rem;
 }
+.barcode-preview-wrap {
+  margin-top: 0.65rem;
+}
+.barcode-preview {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.55rem 0.65rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  overflow: auto;
+}
+.barcode-preview svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.barcode-preview.catalog {
+  padding: 0.25rem 0.35rem 0.15rem;
+  border-radius: 8px;
+}
+.barcode-preview.catalog svg {
+  transform: scale(0.72);
+  transform-origin: left top;
+  max-height: 52px;
+}
+.catalog-barcode {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: start;
+}
+.barcode-preview-error {
+  margin: 0;
+  font-size: 0.8rem;
+}
 .product-catalog-cell {
   display: flex;
   align-items: center;

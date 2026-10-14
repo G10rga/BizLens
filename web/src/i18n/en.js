@@ -323,6 +323,7 @@ export default {
     barcodePlaceholder: 'e.g. 4780123456789',
     generateBarcode: 'Generate',
     clearBarcode: 'Clear barcode',
+    printBarcode: 'Print barcode',
     barcodeCol: 'Barcode',
     image: 'Photo (optional)',
     imageHint: 'Shown on the POS product tiles.',
