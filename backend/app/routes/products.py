@@ -11,6 +11,13 @@ from .helpers import require_business
 bp = Blueprint("products", __name__, url_prefix="/api/products")
 
 ALLOWED_IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MIME_TO_EXT = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
 
 
 def _normalize_barcode(raw) -> str | None:
@@ -46,13 +53,20 @@ def _delete_image_file(path: str | None) -> None:
         pass
 
 
-def _save_product_image(business_id: int, product_id: int, file_storage) -> str:
-    filename = secure_filename(file_storage.filename or "") or "image.jpg"
+def _image_ext(file_storage) -> str:
+    filename = secure_filename(file_storage.filename or "") or ""
     ext = Path(filename).suffix.lower()
-    if ext not in ALLOWED_IMAGE_EXT:
-        raise ValueError("Image must be JPG, PNG, WEBP, or GIF")
+    if ext in ALLOWED_IMAGE_EXT:
+        return ext
+    mime = (file_storage.mimetype or "").lower()
+    if mime in MIME_TO_EXT:
+        return MIME_TO_EXT[mime]
+    raise ValueError("Image must be JPG, PNG, WEBP, or GIF")
+
+
+def _save_product_image(business_id: int, product_id: int, file_storage) -> str:
+    ext = _image_ext(file_storage)
     dest = _product_image_dir(business_id) / f"{product_id}{ext}"
-    # Remove previous files with other extensions for this product
     for old in _product_image_dir(business_id).glob(f"{product_id}.*"):
         if old != dest:
             try:
@@ -61,6 +75,32 @@ def _save_product_image(business_id: int, product_id: int, file_storage) -> str:
                 pass
     file_storage.save(dest)
     return str(dest)
+
+
+def _truthy(raw) -> bool:
+    if isinstance(raw, bool):
+        return raw
+    return str(raw or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _read_product_fields():
+    """JSON or multipart form fields + optional image file."""
+    image = request.files.get("image") or request.files.get("file")
+    if image is not None and not image.filename:
+        image = None
+
+    if request.content_type and "multipart/form-data" in request.content_type:
+        data = {
+            "name": request.form.get("name"),
+            "price": request.form.get("price"),
+            "category": request.form.get("category"),
+            "barcode": request.form.get("barcode"),
+            "active": request.form.get("active"),
+            "clear_image": request.form.get("clear_image"),
+        }
+        return data, image
+
+    return (request.get_json(silent=True) or {}), image
 
 
 @bp.get("")
@@ -79,9 +119,12 @@ def list_products(business):
 @jwt_required()
 @require_business
 def create_product(business):
-    data = request.get_json(silent=True) or {}
+    data, image = _read_product_fields()
     name = (data.get("name") or "").strip()
-    price = float(data.get("price") or 0)
+    try:
+        price = float(data.get("price") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid price"}), 400
     category = (data.get("category") or "").strip() or None
     barcode = _normalize_barcode(data.get("barcode"))
     if not name or price < 0:
@@ -97,6 +140,13 @@ def create_product(business):
         active=True,
     )
     db.session.add(product)
+    db.session.flush()
+    if image is not None:
+        try:
+            product.image_path = _save_product_image(business.id, product.id, image)
+        except ValueError as exc:
+            db.session.rollback()
+            return jsonify({"error": str(exc)}), 400
     db.session.commit()
     return jsonify(product.to_dict()), 201
 
@@ -106,11 +156,14 @@ def create_product(business):
 @require_business
 def update_product(business, product_id):
     product = Product.query.filter_by(id=product_id, business_id=business.id).first_or_404()
-    data = request.get_json(silent=True) or {}
-    if "name" in data:
+    data, image = _read_product_fields()
+    if "name" in data and data.get("name") is not None:
         product.name = (data.get("name") or product.name).strip()
-    if "price" in data:
-        product.price = float(data["price"])
+    if "price" in data and data.get("price") is not None and data.get("price") != "":
+        try:
+            product.price = float(data["price"])
+        except (TypeError, ValueError):
+            return jsonify({"error": "Invalid price"}), 400
     if "category" in data:
         product.category = (data.get("category") or "").strip() or None
     if "barcode" in data:
@@ -118,11 +171,19 @@ def update_product(business, product_id):
         if _barcode_taken(business.id, barcode, exclude_id=product.id):
             return jsonify({"error": "Barcode already used by another product"}), 400
         product.barcode = barcode
-    if "active" in data:
-        product.active = bool(data["active"])
-    if data.get("clear_image"):
+    if "active" in data and data.get("active") is not None and data.get("active") != "":
+        product.active = _truthy(data["active"])
+    if _truthy(data.get("clear_image")) and image is None:
         _delete_image_file(product.image_path)
         product.image_path = None
+    if image is not None:
+        try:
+            saved = _save_product_image(business.id, product.id, image)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        if product.image_path and product.image_path != saved:
+            _delete_image_file(product.image_path)
+        product.image_path = saved
     db.session.commit()
     return jsonify(product.to_dict())
 
@@ -139,7 +200,8 @@ def upload_product_image(business, product_id):
         saved = _save_product_image(business.id, product.id, file)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    _delete_image_file(product.image_path if product.image_path != saved else None)
+    if product.image_path and product.image_path != saved:
+        _delete_image_file(product.image_path)
     product.image_path = saved
     db.session.commit()
     return jsonify(product.to_dict())

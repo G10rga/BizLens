@@ -60,26 +60,23 @@ export default function Products() {
     setBusy(true)
     setError('')
     try {
-      const payload = {
-        name: form.name,
-        price: Number(form.price),
-        category: form.category || null,
-        barcode: form.barcode.trim() || null,
-        active: true,
-      }
+      // Always multipart so photo is saved with the same request as product fields
+      const fd = new FormData()
+      fd.append('name', form.name)
+      fd.append('price', String(Number(form.price)))
+      fd.append('category', form.category || '')
+      fd.append('barcode', form.barcode.trim())
+      fd.append('active', 'true')
       if (editing && clearImage && !imageFile) {
-        payload.clear_image = true
-      }
-      let product
-      if (editing) {
-        product = await api(`/products/${editing}`, { method: 'PUT', body: JSON.stringify(payload) })
-      } else {
-        product = await api('/products', { method: 'POST', body: JSON.stringify(payload) })
+        fd.append('clear_image', 'true')
       }
       if (imageFile) {
-        const fd = new FormData()
-        fd.append('image', imageFile)
-        product = await api(`/products/${product.id}/image`, { method: 'POST', body: fd })
+        fd.append('image', imageFile, imageFile.name || 'product.jpg')
+      }
+      if (editing) {
+        await api(`/products/${editing}`, { method: 'PUT', body: fd })
+      } else {
+        await api('/products', { method: 'POST', body: fd })
       }
       resetForm()
       await load()

@@ -42,5 +42,6 @@ fi
 npm --prefix web run build
 test -f web/dist/index.html
 mkdir -p backend/instance/uploads/lens
+mkdir -p backend/instance/uploads/products
 
 echo "==> Done. Restart: sudo systemctl restart bizlens"
