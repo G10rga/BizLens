@@ -89,7 +89,8 @@ def _read_product_fields():
     if image is not None and not image.filename:
         image = None
 
-    if request.content_type and "multipart/form-data" in request.content_type:
+    # Prefer parsed form fields whenever present (more reliable than content-type checks)
+    if request.form:
         data = {
             "name": request.form.get("name"),
             "price": request.form.get("price"),

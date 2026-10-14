@@ -60,23 +60,36 @@ export default function Products() {
     setBusy(true)
     setError('')
     try {
-      // Always multipart so photo is saved with the same request as product fields
-      const fd = new FormData()
-      fd.append('name', form.name)
-      fd.append('price', String(Number(form.price)))
-      fd.append('category', form.category || '')
-      fd.append('barcode', form.barcode.trim())
-      fd.append('active', 'true')
+      const payload = {
+        name: form.name.trim(),
+        price: Number(form.price),
+        category: form.category.trim() || null,
+        barcode: form.barcode.trim() || null,
+        active: true,
+      }
       if (editing && clearImage && !imageFile) {
-        fd.append('clear_image', 'true')
+        payload.clear_image = true
+      }
+      // JSON for fields (compatible), then optional photo upload
+      let product
+      if (editing) {
+        product = await api(`/products/${editing}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        })
+      } else {
+        product = await api('/products', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        })
       }
       if (imageFile) {
+        const fd = new FormData()
         fd.append('image', imageFile, imageFile.name || 'product.jpg')
-      }
-      if (editing) {
-        await api(`/products/${editing}`, { method: 'PUT', body: fd })
-      } else {
-        await api('/products', { method: 'POST', body: fd })
+        product = await api(`/products/${product.id}/image`, {
+          method: 'POST',
+          body: fd,
+        })
       }
       resetForm()
       await load()
