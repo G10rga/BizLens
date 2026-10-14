@@ -293,7 +293,7 @@ export default {
     pay: 'გადახდა',
     customer: 'სავაჭრო მომხმარებელი',
     received: 'მიღებული თანხა',
-    change: 'ხვალა',
+    change: 'ხურდა',
     complete: 'გადახდის დასრულება',
     cartMeta: '{products} პროდუქტი · {units} ერთეული',
     ticket: '#0048',
