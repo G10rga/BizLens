@@ -95,24 +95,31 @@ def create_app(config_object=Config):
 
 
 def _ensure_schema_compat() -> None:
-    """Lightweight SQLite patches for additive columns (no Alembic yet)."""
+    """Lightweight patches for additive columns (no Alembic yet)."""
     try:
         from sqlalchemy import inspect, text
 
         eng = db.engine
-        if eng.dialect.name != "sqlite":
-            return
+        dialect = eng.dialect.name
         insp = inspect(eng)
-        if "businesses" not in insp.get_table_names():
-            return
-        cols = {c["name"] for c in insp.get_columns("businesses")}
-        if "lens_expected_receipts_per_day" not in cols:
-            with eng.begin() as conn:
-                conn.execute(
-                    text(
-                        "ALTER TABLE businesses "
-                        "ADD COLUMN lens_expected_receipts_per_day INTEGER NOT NULL DEFAULT 10"
+        tables = set(insp.get_table_names())
+
+        # Original SQLite-only patch for Lens Mode column
+        if dialect == "sqlite" and "businesses" in tables:
+            cols = {c["name"] for c in insp.get_columns("businesses")}
+            if "lens_expected_receipts_per_day" not in cols:
+                with eng.begin() as conn:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE businesses "
+                            "ADD COLUMN lens_expected_receipts_per_day INTEGER NOT NULL DEFAULT 10"
+                        )
                     )
-                )
+
+        if "products" in tables:
+            cols = {c["name"] for c in insp.get_columns("products")}
+            if "barcode" not in cols:
+                with eng.begin() as conn:
+                    conn.execute(text("ALTER TABLE products ADD COLUMN barcode VARCHAR(64)"))
     except Exception:  # noqa: BLE001
         pass

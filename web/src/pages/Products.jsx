@@ -2,7 +2,22 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useI18n } from '../i18n'
 
-const empty = { name: '', price: '', category: '' }
+const empty = { name: '', price: '', category: '', barcode: '' }
+
+/** Simple EAN-13-style numeric code (12 random digits + check digit). */
+function generateBarcode() {
+  let body = ''
+  for (let i = 0; i < 12; i += 1) {
+    body += String(Math.floor(Math.random() * 10))
+  }
+  let sum = 0
+  for (let i = 0; i < 12; i += 1) {
+    const n = Number(body[i])
+    sum += i % 2 === 0 ? n : n * 3
+  }
+  const check = (10 - (sum % 10)) % 10
+  return body + String(check)
+}
 
 export default function Products() {
   const { t, money } = useI18n()
@@ -27,6 +42,7 @@ export default function Products() {
         name: form.name,
         price: Number(form.price),
         category: form.category || null,
+        barcode: form.barcode.trim() || null,
         active: true,
       }
       if (editing) {
@@ -46,7 +62,12 @@ export default function Products() {
 
   const startEdit = (p) => {
     setEditing(p.id)
-    setForm({ name: p.name, price: String(p.price), category: p.category || '' })
+    setForm({
+      name: p.name,
+      price: String(p.price),
+      category: p.category || '',
+      barcode: p.barcode || '',
+    })
   }
 
   const remove = async (id) => {
@@ -80,6 +101,38 @@ export default function Products() {
             <label>{t('products.category')}</label>
             <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
           </div>
+          <div className="field">
+            <label>{t('products.barcode')}</label>
+            <p className="muted" style={{ margin: '0 0 0.45rem', fontSize: '0.82rem' }}>
+              {t('products.barcodeHint')}
+            </p>
+            <div className="row" style={{ gap: '0.5rem', alignItems: 'stretch' }}>
+              <input
+                value={form.barcode}
+                onChange={(e) => setForm({ ...form, barcode: e.target.value })}
+                placeholder={t('products.barcodePlaceholder')}
+                inputMode="numeric"
+                style={{ flex: 1 }}
+              />
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => setForm({ ...form, barcode: generateBarcode() })}
+              >
+                {t('products.generateBarcode')}
+              </button>
+            </div>
+            {form.barcode && (
+              <button
+                type="button"
+                className="btn ghost"
+                style={{ marginTop: '0.45rem' }}
+                onClick={() => setForm({ ...form, barcode: '' })}
+              >
+                {t('products.clearBarcode')}
+              </button>
+            )}
+          </div>
           <div className="row">
             <button className="btn" disabled={busy}>{busy ? t('common.saving') : t('common.save')}</button>
             {editing && (
@@ -96,6 +149,7 @@ export default function Products() {
               <tr>
                 <th>{t('products.name')}</th>
                 <th>{t('products.priceCol')}</th>
+                <th>{t('products.barcodeCol')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -107,6 +161,9 @@ export default function Products() {
                     {p.category && <div className="muted">{p.category}</div>}
                   </td>
                   <td>{money(p.price)}</td>
+                  <td className="muted" style={{ fontVariantNumeric: 'tabular-nums', fontSize: '0.85rem' }}>
+                    {p.barcode || '—'}
+                  </td>
                   <td className="row">
                     <button className="btn ghost" type="button" onClick={() => startEdit(p)}>{t('common.edit')}</button>
                     <button className="btn danger" type="button" onClick={() => remove(p.id)}>{t('common.delete')}</button>

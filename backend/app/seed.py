@@ -50,18 +50,24 @@ def _create_demo() -> None:
     db.session.flush()
 
     products = [
-        ("შოთის პური", 2.5, "პური"),
-        ("იმერული ხაჭაპური", 7.0, "ცომეული"),
-        ("აჭარული ხაჭაპური", 9.0, "ცომეული"),
-        ("ლობიანი", 5.5, "ცომეული"),
-        ("ყავა Capuccino", 6.0, "სასმელი"),
-        ("ნაპოლეონი", 4.5, "დესერტი"),
-        ("ქათმის ღვეზელი", 3.5, "ცომეული"),
-        ("წყალი", 1.5, "სასმელი"),
+        ("შოთის პური", 2.5, "პური", "4780001000001"),
+        ("იმერული ხაჭაპური", 7.0, "ცომეული", "4780001000002"),
+        ("აჭარული ხაჭაპური", 9.0, "ცომეული", "4780001000003"),
+        ("ლობიანი", 5.5, "ცომეული", "4780001000004"),
+        ("ყავა Capuccino", 6.0, "სასმელი", "4780001000005"),
+        ("ნაპოლეონი", 4.5, "დესერტი", "4780001000006"),
+        ("ქათმის ღვეზელი", 3.5, "ცომეული", "4780001000007"),
+        ("წყალი", 1.5, "სასმელი", "4780001000008"),
     ]
     product_rows = []
-    for name, price, category in products:
-        p = Product(business_id=business.id, name=name, price=price, category=category)
+    for name, price, category, barcode in products:
+        p = Product(
+            business_id=business.id,
+            name=name,
+            price=price,
+            category=category,
+            barcode=barcode,
+        )
         db.session.add(p)
         product_rows.append(p)
     db.session.flush()

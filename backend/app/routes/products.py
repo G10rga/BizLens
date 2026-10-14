@@ -8,6 +8,22 @@ from .helpers import require_business
 bp = Blueprint("products", __name__, url_prefix="/api/products")
 
 
+def _normalize_barcode(raw) -> str | None:
+    if raw is None:
+        return None
+    value = str(raw).strip()
+    return value or None
+
+
+def _barcode_taken(business_id: int, barcode: str | None, exclude_id: int | None = None) -> bool:
+    if not barcode:
+        return False
+    q = Product.query.filter_by(business_id=business_id, barcode=barcode)
+    if exclude_id is not None:
+        q = q.filter(Product.id != exclude_id)
+    return q.first() is not None
+
+
 @bp.get("")
 @jwt_required()
 @require_business
@@ -28,10 +44,18 @@ def create_product(business):
     name = (data.get("name") or "").strip()
     price = float(data.get("price") or 0)
     category = (data.get("category") or "").strip() or None
+    barcode = _normalize_barcode(data.get("barcode"))
     if not name or price < 0:
         return jsonify({"error": "name and non-negative price required"}), 400
+    if _barcode_taken(business.id, barcode):
+        return jsonify({"error": "Barcode already used by another product"}), 400
     product = Product(
-        business_id=business.id, name=name, price=price, category=category, active=True
+        business_id=business.id,
+        name=name,
+        price=price,
+        category=category,
+        barcode=barcode,
+        active=True,
     )
     db.session.add(product)
     db.session.commit()
@@ -50,6 +74,11 @@ def update_product(business, product_id):
         product.price = float(data["price"])
     if "category" in data:
         product.category = (data.get("category") or "").strip() or None
+    if "barcode" in data:
+        barcode = _normalize_barcode(data.get("barcode"))
+        if _barcode_taken(business.id, barcode, exclude_id=product.id):
+            return jsonify({"error": "Barcode already used by another product"}), 400
+        product.barcode = barcode
     if "active" in data:
         product.active = bool(data["active"])
     db.session.commit()

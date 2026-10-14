@@ -95,6 +95,7 @@ class Product(db.Model, TimestampMixin):
     name = db.Column(db.String(255), nullable=False)
     price = db.Column(db.Float, nullable=False)
     category = db.Column(db.String(128), nullable=True)
+    barcode = db.Column(db.String(64), nullable=True, index=True)
     active = db.Column(db.Boolean, default=True, nullable=False)
 
     business = db.relationship("Business", back_populates="products")
@@ -105,6 +106,7 @@ class Product(db.Model, TimestampMixin):
             "name": self.name,
             "price": self.price,
             "category": self.category,
+            "barcode": self.barcode,
             "active": self.active,
         }
 

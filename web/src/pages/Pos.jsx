@@ -4,14 +4,28 @@ import { useAuth } from '../auth'
 import { LanguageSwitcher, useI18n } from '../i18n'
 import { ThemeIconButton, useTheme } from '../theme'
 
+function formatOrderNo(id) {
+  return String(id).padStart(4, '0')
+}
+
+function formatSoldAt(iso, locale) {
+  if (!iso) return { date: '', time: '' }
+  const d = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`)
+  return {
+    date: d.toLocaleDateString(locale, { year: 'numeric', month: '2-digit', day: '2-digit' }),
+    time: d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+  }
+}
+
 export default function Pos() {
   const { refresh, business } = useAuth()
-  const { t, money } = useI18n()
+  const { t, money, lang } = useI18n()
   const { theme } = useTheme()
   const [products, setProducts] = useState([])
   const [cart, setCart] = useState([])
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(null)
+  const [showReceipt, setShowReceipt] = useState(false)
   const [busy, setBusy] = useState(false)
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('all')
@@ -39,7 +53,11 @@ export default function Pos() {
   }, [products])
 
   const filtered = products.filter((p) => {
-    const matchQ = p.name.toLowerCase().includes(q.toLowerCase())
+    const qLower = q.toLowerCase().trim()
+    const matchQ =
+      !qLower ||
+      p.name.toLowerCase().includes(qLower) ||
+      (p.barcode && p.barcode.includes(q.trim()))
     const matchCat = cat === 'all' || p.category === cat
     return matchQ && matchCat
   })
@@ -56,6 +74,7 @@ export default function Pos() {
 
   const add = (product) => {
     setSuccess(null)
+    setShowReceipt(false)
     setCart((prev) => {
       const existing = prev.find((i) => i.product_id === product.id)
       if (existing) {
@@ -93,7 +112,13 @@ export default function Pos() {
         method: 'POST',
         body: JSON.stringify({ payment_method: payMethod, items: cart }),
       })
-      setSuccess(sale)
+      const receipt = {
+        ...sale,
+        received: payMethod === 'cash' && receivedNum > 0 ? receivedNum : null,
+        change: payMethod === 'cash' && receivedNum >= sale.total ? receivedNum - sale.total : null,
+      }
+      setSuccess(receipt)
+      setShowReceipt(true)
       setCart([])
       setReceived('')
       await refresh()
@@ -107,6 +132,8 @@ export default function Pos() {
   const methodLabel = (method) => (method === 'card' ? t('common.card') : t('common.cash'))
   const tone = theme === 'dark' ? 'dark' : 'light'
   const timeLabel = clock.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const locale = lang === 'ka' ? 'ka-GE' : 'en-GB'
+  const soldAt = success ? formatSoldAt(success.sold_at, locale) : { date: '', time: '' }
 
   return (
     <div className="pos-desk">
@@ -123,8 +150,17 @@ export default function Pos() {
       </div>
       {error && <div className="error">{error}</div>}
       {success && (
-        <div className="success">
-          {t('pos.sold', { id: success.id, total: money(success.total), method: methodLabel(success.payment_method) })}
+        <div className="success pos-success-bar">
+          <span>
+            {t('pos.sold', {
+              id: success.id,
+              total: money(success.total),
+              method: methodLabel(success.payment_method),
+            })}
+          </span>
+          <button type="button" className="btn ghost pos-receipt-btn" onClick={() => setShowReceipt(true)}>
+            {t('pos.viewReceipt')}
+          </button>
         </div>
       )}
       <div className="pos-layout">
@@ -161,7 +197,7 @@ export default function Pos() {
                   key={p.id}
                   type="button"
                   className={`product-tile${qty ? ' in-cart' : ''}`}
-                  title={p.name}
+                  title={p.barcode ? `${p.name} · ${p.barcode}` : p.name}
                   onClick={() => add(p)}
                 >
                   {qty > 0 && <span className="tile-qty">✓ {qty}</span>}
@@ -236,6 +272,79 @@ export default function Pos() {
           </button>
         </aside>
       </div>
+
+      {showReceipt && success && (
+        <div className="receipt-overlay" role="dialog" aria-modal="true" aria-label={t('pos.receiptTitle')}>
+          <div className="receipt-panel no-print">
+            <div className="receipt-panel-actions">
+              <button type="button" className="btn" onClick={() => window.print()}>
+                {t('pos.printReceipt')}
+              </button>
+              <button type="button" className="btn ghost" onClick={() => setShowReceipt(false)}>
+                {t('pos.closeReceipt')}
+              </button>
+            </div>
+          </div>
+          <div className="receipt-sheet" id="pos-receipt">
+            <div className="receipt-brand">{business?.name || 'BizLens'}</div>
+            {business?.city && <div className="receipt-place">{business.city}</div>}
+            <div className="receipt-sep">--------------------------------</div>
+            <div className="receipt-meta">
+              <div>
+                <span>{t('pos.receiptOrder')}</span>
+                <strong>#{formatOrderNo(success.id)}</strong>
+              </div>
+              <div>
+                <span>{t('pos.receiptDate')}</span>
+                <strong>{soldAt.date}</strong>
+              </div>
+              <div>
+                <span>{t('pos.receiptTime')}</span>
+                <strong>{soldAt.time}</strong>
+              </div>
+              <div>
+                <span>{t('pos.receiptPayment')}</span>
+                <strong>{methodLabel(success.payment_method)}</strong>
+              </div>
+            </div>
+            <div className="receipt-sep">--------------------------------</div>
+            <div className="receipt-lines">
+              {(success.items || []).map((item) => (
+                <div className="receipt-line" key={item.id || `${item.product_name}-${item.quantity}`}>
+                  <div className="receipt-line-name">{item.product_name}</div>
+                  <div className="receipt-line-row">
+                    <span>
+                      {item.quantity} × {money(item.unit_price)}
+                    </span>
+                    <strong>{money(item.line_total)}</strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="receipt-sep">--------------------------------</div>
+            <div className="receipt-total">
+              <span>{t('pos.receiptTotal')}</span>
+              <strong>{money(success.total)}</strong>
+            </div>
+            {success.payment_method === 'cash' && success.received != null && (
+              <>
+                <div className="receipt-sub">
+                  <span>{t('pos.received')}</span>
+                  <span>{money(success.received)}</span>
+                </div>
+                {success.change != null && (
+                  <div className="receipt-sub">
+                    <span>{t('pos.change')}</span>
+                    <span>{money(success.change)}</span>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="receipt-sep">--------------------------------</div>
+            <div className="receipt-thanks">{t('pos.receiptThanks')}</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
