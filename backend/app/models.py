@@ -96,6 +96,7 @@ class Product(db.Model, TimestampMixin):
     price = db.Column(db.Float, nullable=False)
     category = db.Column(db.String(128), nullable=True)
     barcode = db.Column(db.String(64), nullable=True, index=True)
+    image_path = db.Column(db.String(512), nullable=True)
     active = db.Column(db.Boolean, default=True, nullable=False)
 
     business = db.relationship("Business", back_populates="products")
@@ -107,6 +108,7 @@ class Product(db.Model, TimestampMixin):
             "price": self.price,
             "category": self.category,
             "barcode": self.barcode,
+            "image_url": f"/api/products/{self.id}/image" if self.image_path else None,
             "active": self.active,
         }
 

@@ -324,6 +324,11 @@ export default {
     generateBarcode: 'Generate',
     clearBarcode: 'Clear barcode',
     barcodeCol: 'Barcode',
+    image: 'Photo (optional)',
+    imageHint: 'Shown on the POS product tiles.',
+    chooseImage: 'Choose photo',
+    removeImage: 'Remove photo',
+    noImage: 'No photo',
   },
   today: {
     title: "Today's sales",

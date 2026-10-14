@@ -46,6 +46,15 @@ export async function api(path, options = {}) {
   return data
 }
 
+/** Auth-ready URL for <img src> (JWT via query string). */
+export function authMediaUrl(path) {
+  if (!path) return null
+  const token = getToken()
+  if (!token) return path
+  const sep = path.includes('?') ? '&' : '?'
+  return `${path}${sep}jwt=${encodeURIComponent(token)}`
+}
+
 export const money = (n, lang = 'ka') =>
   `${Number(n || 0).toLocaleString(lang === 'ka' ? 'ka-GE' : 'en-US', {
     minimumFractionDigits: 2,

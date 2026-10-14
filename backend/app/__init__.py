@@ -118,8 +118,10 @@ def _ensure_schema_compat() -> None:
 
         if "products" in tables:
             cols = {c["name"] for c in insp.get_columns("products")}
-            if "barcode" not in cols:
-                with eng.begin() as conn:
+            with eng.begin() as conn:
+                if "barcode" not in cols:
                     conn.execute(text("ALTER TABLE products ADD COLUMN barcode VARCHAR(64)"))
+                if "image_path" not in cols:
+                    conn.execute(text("ALTER TABLE products ADD COLUMN image_path VARCHAR(512)"))
     except Exception:  # noqa: BLE001
         pass

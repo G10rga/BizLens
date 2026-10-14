@@ -325,6 +325,11 @@ export default {
     generateBarcode: 'გენერაცია',
     clearBarcode: 'გასუფთავება',
     barcodeCol: 'შტრიხკოდი',
+    image: 'ფოტო (არასავალდებულო)',
+    imageHint: 'გამოჩნდება POS პროდუქტის ბარათებზე.',
+    chooseImage: 'ფოტოს არჩევა',
+    removeImage: 'ფოტოს წაშლა',
+    noImage: 'ფოტო არ არის',
   },
   today: {
     title: 'დღევანდელი გაყიდვები',

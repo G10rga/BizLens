@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api } from '../api'
+import { api, authMediaUrl } from '../api'
 import { useAuth } from '../auth'
 import { LanguageSwitcher, useI18n } from '../i18n'
 import { ThemeIconButton, useTheme } from '../theme'
@@ -196,12 +196,23 @@ export default function Pos() {
                 <button
                   key={p.id}
                   type="button"
-                  className={`product-tile${qty ? ' in-cart' : ''}`}
+                  className={`product-tile${qty ? ' in-cart' : ''}${p.image_url ? ' has-image' : ''}`}
                   title={p.barcode ? `${p.name} · ${p.barcode}` : p.name}
                   onClick={() => add(p)}
                 >
                   {qty > 0 && <span className="tile-qty">✓ {qty}</span>}
                   <span className="tile-cat">{p.category || '\u00a0'}</span>
+                  {p.image_url ? (
+                    <img
+                      className="tile-img"
+                      src={authMediaUrl(p.image_url)}
+                      alt=""
+                      loading="lazy"
+                      draggable={false}
+                    />
+                  ) : (
+                    <span className="tile-img placeholder" aria-hidden="true" />
+                  )}
                   <strong>{p.name}</strong>
                   <span className="price">{money(p.price)}</span>
                   <span className="tile-add" aria-hidden="true">+</span>
