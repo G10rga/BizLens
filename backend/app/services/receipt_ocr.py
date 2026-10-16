@@ -59,18 +59,26 @@ def ocr_status() -> dict[str, Any]:
     """Which OCR backends are available (local-first, no API keys required)."""
     rapid_ok = _rapidocr_available()
     tess_ok = _tesseract_available()
+    tess_kat = _tesseract_has_lang("kat")
     space_key = os.getenv("OCR_SPACE_API_KEY", "").strip()
+    order = (
+        ["tesseract", "rapidocr", "ocr_space", "openai_vision"]
+        if tess_kat
+        else ["rapidocr", "tesseract", "ocr_space", "openai_vision"]
+    )
     return {
         "rapidocr": rapid_ok,
         "tesseract": tess_ok,
+        "tesseract_kat": tess_kat,
         "ocr_space": bool(space_key) and space_key.lower() not in {"off", "false", "0"},
         "ocr_space_key_set": bool(space_key),
         "openai_vision": bool(os.getenv("OPENAI_API_KEY", "").strip()),
-        "preferred_order": ["rapidocr", "tesseract", "ocr_space", "openai_vision"],
+        "preferred_order": order,
         "mode": "local",
         "note": (
-            "Local OCR: RapidOCR (pip only, no API key) then Tesseract if installed. "
-            "Cloud OCR is off unless you explicitly set OCR_SPACE_API_KEY / OPENAI_API_KEY."
+            "Georgian receipts need Tesseract with the kat language pack "
+            "(apt: tesseract-ocr-kat). RapidOCR is Latin/CJK-oriented and skips Georgian script. "
+            "Cloud OCR is off unless OCR_SPACE_API_KEY / OPENAI_API_KEY is set."
         ),
     }
 
@@ -78,17 +86,36 @@ def ocr_status() -> dict[str, Any]:
 def extract_text_from_image(image_bytes: bytes, filename: str = "receipt.jpg") -> tuple[str, str]:
     """
     Returns (raw_text, engine_name).
-    Local-first, no keys: RapidOCR → Tesseract → (optional cloud if keys set).
+
+    Prefer Tesseract+kat for Georgian fiscal receipts. RapidOCR often returns
+    Latin garbage for Mkhedruli and previously short-circuited before Tesseract ran.
     """
+    tess_kat = _tesseract_has_lang("kat")
+
+    # 1) Georgian-capable local engine first when installed
+    if tess_kat:
+        tess = _tesseract_extract(image_bytes)
+        if tess and _receipt_text_usable(tess):
+            return tess, "tesseract"
+
+    # 2) RapidOCR (fast for Latin numbers / English) — then upgrade via Tesseract if weak
     rapid = _rapidocr_extract(image_bytes)
     if rapid:
-        return rapid, "rapidocr"
+        if not _receipt_text_usable(rapid) and _tesseract_available():
+            tess = _tesseract_extract(image_bytes)
+            if tess and _georgian_score(tess) >= _georgian_score(rapid):
+                if _receipt_text_usable(tess) or len(tess) > len(rapid):
+                    return tess, "tesseract"
+        if _receipt_text_usable(rapid) or not tess_kat:
+            return rapid, "rapidocr"
 
-    tess = _tesseract_extract(image_bytes)
-    if tess:
-        return tess, "tesseract"
+    # 3) Tesseract without requiring kat (eng-only installs)
+    if not tess_kat and _tesseract_available():
+        tess = _tesseract_extract(image_bytes)
+        if tess:
+            return tess, "tesseract"
 
-    # Cloud only when explicitly configured — never call APIs by default
+    # 4) Cloud only when explicitly configured
     space = _ocr_space_extract(image_bytes, filename)
     if space:
         return space, "ocr_space"
@@ -97,7 +124,36 @@ def extract_text_from_image(image_bytes: bytes, filename: str = "receipt.jpg") -
     if openai_text:
         return openai_text, "openai_vision"
 
+    # Last resort: return whatever RapidOCR got even if weak
+    if rapid:
+        return rapid, "rapidocr"
+
     return "", "none"
+
+
+_GEORGIAN_RE = re.compile(r"[ა-ჰ]")
+
+
+def _georgian_score(text: str) -> int:
+    return len(_GEORGIAN_RE.findall(text or ""))
+
+
+def _receipt_text_usable(text: str) -> bool:
+    """True when OCR text is useful for fiscal field parsing."""
+    t = (text or "").strip()
+    if len(t) < 8:
+        return False
+    # Georgian script present → good for local GE receipts
+    if _georgian_score(t) >= 4:
+        return True
+    lower = t.lower()
+    # Payment / total cues in English or Latin OCR noise of bilingual receipts
+    if re.search(r"(total|ჯამი|sum|cash|card|visa|ნაღდ|ბარათ|უნაღდ|payment|გადახდ)", lower):
+        return True
+    # Enough digit amounts to still recover a total
+    if len(re.findall(r"\d+[.,]\d{2}", t)) >= 1 and len(t) >= 20:
+        return True
+    return False
 
 
 def parse_receipt_text(raw_text: str) -> dict[str, Any]:
@@ -186,11 +242,18 @@ def empty_manual_parse(warning: str | None = None) -> dict[str, Any]:
     }
 
 
-def compress_for_ocr(image_bytes: bytes, max_side: int = 1280) -> bytes:
+def compress_for_ocr(image_bytes: bytes, max_side: int | None = None) -> bytes:
     """Shrink phone photos so OCR doesn't OOM (common cause of HTTP 502)."""
     from io import BytesIO
 
     from PIL import Image, ImageOps
+
+    if max_side is None:
+        try:
+            max_side = int(os.getenv("OCR_MAX_SIDE", "1100"))
+        except ValueError:
+            max_side = 1100
+        max_side = max(720, min(max_side, 1600))
 
     try:
         img = Image.open(BytesIO(image_bytes))
@@ -205,7 +268,8 @@ def compress_for_ocr(image_bytes: bytes, max_side: int = 1280) -> bytes:
             scale = max_side / longest
             img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
         out = BytesIO()
-        img.save(out, format="JPEG", quality=85, optimize=True)
+        # Slightly lower quality = smaller buffer + faster OCR
+        img.save(out, format="JPEG", quality=80, optimize=True)
         return out.getvalue()
     except Exception:  # noqa: BLE001
         return image_bytes
@@ -325,12 +389,14 @@ def _preprocess_receipt_image(image_bytes: bytes):
         img = img.convert("RGB")
     w, h = img.size
     longest = max(w, h)
+    try:
+        max_side = int(os.getenv("OCR_MAX_SIDE", "1100"))
+    except ValueError:
+        max_side = 1100
+    max_side = max(720, min(max_side, 1600))
     # Cap size — large phone images were crashing workers (HTTP 502)
-    if longest > 1280:
-        scale = 1280 / longest
-        img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
-    elif longest < 900:
-        scale = 900 / longest
+    if longest > max_side:
+        scale = max_side / longest
         img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
     img = ImageOps.autocontrast(img, cutoff=2)
     img = img.filter(ImageFilter.SHARPEN)
@@ -367,6 +433,29 @@ def _tesseract_available() -> bool:
         return True
     except Exception:  # noqa: BLE001
         return False
+
+
+_TESS_LANGS: set[str] | None = None
+
+
+def _tesseract_langs() -> set[str]:
+    global _TESS_LANGS
+    if _TESS_LANGS is not None:
+        return _TESS_LANGS
+    try:
+        import pytesseract
+
+        raw = pytesseract.get_languages(config="")
+        _TESS_LANGS = {str(x).strip().lower() for x in (raw or []) if str(x).strip()}
+    except Exception:  # noqa: BLE001
+        _TESS_LANGS = set()
+    return _TESS_LANGS
+
+
+def _tesseract_has_lang(lang: str) -> bool:
+    if not _tesseract_available():
+        return False
+    return lang.lower() in _tesseract_langs()
 
 
 def _ocr_space_extract(image_bytes: bytes, filename: str) -> str:
@@ -494,12 +583,16 @@ def _tesseract_extract(image_bytes: bytes) -> str:
 
         arr = _preprocess_receipt_image(image_bytes)
         img = Image.fromarray(arr)
-        # Receipt-style: sparse text, single column
-        config = "--psm 6"
-        try:
-            text = pytesseract.image_to_string(img, lang="eng+kat", config=config)
-        except Exception:  # noqa: BLE001
-            text = pytesseract.image_to_string(img, lang="eng", config=config)
+        # Receipt-style: sparse text, single column; LSTM only (faster)
+        config = "--oem 1 --psm 6"
+        langs = _tesseract_langs()
+        if "kat" in langs and "eng" in langs:
+            lang = "kat+eng"
+        elif "kat" in langs:
+            lang = "kat"
+        else:
+            lang = "eng"
+        text = pytesseract.image_to_string(img, lang=lang, config=config)
         return (text or "").strip()
     except Exception:  # noqa: BLE001
         return ""
@@ -575,11 +668,36 @@ def _parse_total(text: str) -> float | None:
 
 
 def _parse_payment(text: str) -> str:
-    lower = text.lower()
-    if re.search(r"\b(card|visa|mastercard|ბარათი|card payment)\b", lower):
-        return "card"
-    if re.search(r"\b(cash|ნაღდი|ნაღდი ანგარიშსწორება)\b", lower):
-        return "cash"
+    """Detect cash/card from English or Georgian fiscal wording."""
+    lower = (text or "").lower()
+    # Non-cash / card (check first — "უნაღდო" contains "ნაღდ")
+    card_patterns = (
+        r"უნაღდო",
+        r"ბარათით",
+        r"ბარათი",
+        r"ტერმინალ",
+        r"\bpos\b",
+        r"\bvisa\b",
+        r"\bmaster\s*card\b",
+        r"\bmastercard\b",
+        r"\bcard\b",
+        r"card payment",
+        r"non[-\s]?cash",
+    )
+    for pat in card_patterns:
+        if re.search(pat, lower, re.IGNORECASE):
+            return "card"
+
+    cash_patterns = (
+        r"ნაღდი\s*ფული",
+        r"ნაღდი\s*ანგარიშსწორება",
+        r"ნაღდით",
+        r"ნაღდი",
+        r"\bcash\b",
+    )
+    for pat in cash_patterns:
+        if re.search(pat, lower, re.IGNORECASE):
+            return "cash"
     return "unknown"
 
 

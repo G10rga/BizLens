@@ -28,7 +28,10 @@ apt-get install -y \
   software-properties-common \
   git rsync curl build-essential \
   nginx \
-  ca-certificates
+  ca-certificates \
+  tesseract-ocr \
+  tesseract-ocr-eng \
+  tesseract-ocr-kat
 
 # Prophet + RapidOCR need Python 3.11/3.12 (not 3.13+). Prefer 3.11 via deadsnakes.
 if ! command -v python3.11 >/dev/null 2>&1; then
