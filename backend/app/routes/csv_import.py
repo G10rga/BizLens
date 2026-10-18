@@ -3,11 +3,12 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
+from sqlalchemy import func
 from werkzeug.utils import secure_filename
 
 from ..config import Config
 from ..extensions import db
-from ..models import Alert, CsvImport, DailySale, Sale
+from ..models import Alert, CsvImport, DailySale, ReceiptCapture, Sale, SaleItem
 from ..services.csv_parser import parse_sales_file
 from ..services.sales_agg import set_daily_revenue
 from .helpers import require_business
@@ -42,25 +43,54 @@ def clear_data(business):
     data = request.get_json(silent=True) or {}
     include_pos = data.get("include_pos", True)
 
-    daily_deleted = DailySale.query.filter_by(business_id=business.id).delete()
-    imports_deleted = CsvImport.query.filter_by(business_id=business.id).delete()
-    alerts_deleted = Alert.query.filter_by(business_id=business.id).delete()
+    try:
+        daily_deleted = DailySale.query.filter_by(business_id=business.id).delete(
+            synchronize_session=False
+        )
+        imports_deleted = CsvImport.query.filter_by(business_id=business.id).delete(
+            synchronize_session=False
+        )
+        alerts_deleted = Alert.query.filter_by(business_id=business.id).delete(
+            synchronize_session=False
+        )
 
-    pos_deleted = 0
-    if include_pos:
-        pos_deleted = Sale.query.filter_by(business_id=business.id).delete()
+        pos_deleted = 0
+        if include_pos:
+            sale_ids = db.session.query(Sale.id).filter_by(business_id=business.id)
+            # Bulk Sale.delete() skips ORM cascades — remove FK children first.
+            SaleItem.query.filter(SaleItem.sale_id.in_(sale_ids)).delete(
+                synchronize_session=False
+            )
+            ReceiptCapture.query.filter_by(business_id=business.id).delete(
+                synchronize_session=False
+            )
+            cash_total = (
+                db.session.query(func.coalesce(func.sum(Sale.total), 0.0))
+                .filter_by(business_id=business.id, payment_method="cash")
+                .scalar()
+            )
+            business.cash_on_hand = max(
+                0.0, float(business.cash_on_hand) - float(cash_total or 0)
+            )
+            pos_deleted = Sale.query.filter_by(business_id=business.id).delete(
+                synchronize_session=False
+            )
 
-    upload_dir = Path(Config.UPLOAD_DIR)
-    files_deleted = 0
-    if upload_dir.exists():
-        for path in upload_dir.glob(f"{business.id}_*"):
-            try:
-                path.unlink()
-                files_deleted += 1
-            except OSError:
-                pass
+        upload_dir = Path(Config.UPLOAD_DIR)
+        files_deleted = 0
+        if upload_dir.exists():
+            for path in upload_dir.glob(f"{business.id}_*"):
+                try:
+                    path.unlink()
+                    files_deleted += 1
+                except OSError:
+                    pass
 
-    db.session.commit()
+        db.session.commit()
+    except Exception as exc:  # noqa: BLE001
+        db.session.rollback()
+        return jsonify({"error": str(exc) or "Could not clear sales data"}), 500
+
     return jsonify(
         {
             "ok": True,
