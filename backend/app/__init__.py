@@ -85,6 +85,26 @@ def create_app(config_object=Config):
             return send_from_directory(dist, "index.html")
         return jsonify({"error": "Frontend not built. Run: cd web && npm run build"}), 503
 
+    @app.errorhandler(500)
+    def api_internal_error(e):
+        from flask import request
+
+        if request.path.startswith("/api/"):
+            return jsonify({"error": "Internal server error"}), 500
+        return e
+
+    @app.errorhandler(Exception)
+    def api_unhandled_exception(e):
+        from flask import request
+        from werkzeug.exceptions import HTTPException
+
+        if isinstance(e, HTTPException):
+            return e
+        if request.path.startswith("/api/"):
+            app.logger.exception("Unhandled API error on %s", request.path)
+            return jsonify({"error": str(e) or "Internal server error"}), 500
+        raise e
+
     with app.app_context():
         db.create_all()
         _ensure_schema_compat()

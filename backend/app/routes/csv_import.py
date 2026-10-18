@@ -56,11 +56,21 @@ def clear_data(business):
 
         pos_deleted = 0
         if include_pos:
-            sale_ids = db.session.query(Sale.id).filter_by(business_id=business.id)
+            sale_id_list = [
+                row[0]
+                for row in db.session.query(Sale.id)
+                .filter_by(business_id=business.id)
+                .all()
+            ]
             # Bulk Sale.delete() skips ORM cascades — remove FK children first.
-            SaleItem.query.filter(SaleItem.sale_id.in_(sale_ids)).delete(
-                synchronize_session=False
-            )
+            if sale_id_list:
+                SaleItem.query.filter(SaleItem.sale_id.in_(sale_id_list)).delete(
+                    synchronize_session=False
+                )
+                ReceiptCapture.query.filter(
+                    ReceiptCapture.sale_id.in_(sale_id_list)
+                ).delete(synchronize_session=False)
+            # Also drop any leftover Lens drafts for this business
             ReceiptCapture.query.filter_by(business_id=business.id).delete(
                 synchronize_session=False
             )
