@@ -34,21 +34,56 @@ def seed_demo_if_needed(app) -> None:
 
 
 def _ensure_demo_tax_profile(user: User) -> None:
-    """Backfill tax fields for an already-seeded demo business."""
+    """Backfill tax fields / history for an already-seeded demo business."""
+    from .models import DailySale
+
     business = user.business
     if not business:
         return
-    if business.tax_profile_complete and business.legal_form:
-        return
-    business.legal_form = business.legal_form or "ie"
-    business.tax_regime = business.tax_regime or "small"
-    business.is_vat_payer = False
-    business.has_employees = True
-    business.pension_participants = True
-    business.llc_distributes_profit = False
-    business.tax_profile_complete = True
-    rebuild_tax_reserves(business)
-    db.session.commit()
+    changed = False
+    if not business.tax_profile_complete or not business.legal_form:
+        business.legal_form = business.legal_form or "ie"
+        business.tax_regime = business.tax_regime or "small"
+        business.is_vat_payer = False
+        business.has_employees = True
+        business.pension_participants = True
+        business.llc_distributes_profit = False
+        business.tax_profile_complete = True
+        changed = True
+
+    # If DailySale was wiped (common after DB resets), reseed synthetic history
+    day_count = DailySale.query.filter_by(business_id=business.id).count()
+    if day_count == 0:
+        random.seed(42)
+        today = date.today()
+        base = 420.0
+        for i in range(120, 0, -1):
+            d = today - timedelta(days=i)
+            dow = d.weekday()
+            weekly = [0.85, 0.9, 0.95, 1.0, 1.15, 1.35, 1.2][dow]
+            geo = daily_seasonality_factor(d, "bakery")
+            noise = 1.0 + random.uniform(-0.12, 0.12)
+            trend = 1.0 + (120 - i) * 0.0008
+            revenue = round(base * weekly * geo * noise * trend, 2)
+            upsert_daily_revenue(business.id, d, revenue, source="seed")
+        business.cash_baseline_date = today - timedelta(days=120)
+        business.cash_on_hand = float(business.cash_on_hand or 1850.0)
+        changed = True
+
+    # Demo cash baseline should cover seeded history so tax reserve is meaningful
+    earliest = (
+        db.session.query(db.func.min(DailySale.sale_date))
+        .filter_by(business_id=business.id)
+        .scalar()
+    )
+    if earliest and (
+        not business.cash_baseline_date or business.cash_baseline_date > earliest
+    ):
+        business.cash_baseline_date = earliest
+        changed = True
+    if changed:
+        rebuild_tax_reserves(business)
+        db.session.commit()
 
 
 def _create_demo() -> None:
@@ -65,7 +100,8 @@ def _create_demo() -> None:
         city="Tbilisi",
         cash_on_hand=1850.0,
         onboarding_complete=True,
-        cash_baseline_date=date.today(),
+        # Align with seeded history start so rebuild_tax_reserves is not ~0
+        cash_baseline_date=date.today() - timedelta(days=120),
         legal_form="ie",
         tax_regime="small",
         is_vat_payer=False,

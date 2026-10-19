@@ -524,8 +524,11 @@ def estimate_period(
             # Rough: 1% up to cap share of period + 3% on rest — use YTD position
             estimated_income_tax = round(net_income * SMALL_OVER_CAP_RATE, 2)
     elif regime == "general":
-        profit = max(0.0, net_income - expense_total)
-        estimated_income_tax = round(profit * GENERAL_PIT_RATE, 2)
+        # Match per-sale accrual: 20% PIT on assumed profit margin of net sales
+        # (not revenue−expenses — that would diverge from tax_reserve forever).
+        estimated_income_tax = round(
+            net_income * GENERAL_PROFIT_MARGIN * GENERAL_PIT_RATE, 2
+        )
     elif regime == "llc_estonian" and p["llc_distributes_profit"]:
         # Same planning proxy as per-sale accrual: tax on half of net turnover
         estimated_income_tax = round(
@@ -538,13 +541,14 @@ def estimate_period(
     if p["has_employees"] and p["pension_participants"] and salary_expense_total > 0:
         employer_pension = round(salary_expense_total * PENSION_EMPLOYER_RATE, 2)
 
-    # Period tax implied by income/expenses under the chosen profile (YTD card)
-    estimated_total_tax = round(
-        estimated_income_tax + estimated_vat + employer_pension, 2
-    )
+    # Sales-driven taxes we actually accrue into tax_reserve / vat_reserve
+    sales_tax_estimate = round(estimated_income_tax + estimated_vat, 2)
+    # Period total including payroll pension (shown separately; not sale-accrued)
+    estimated_total_tax = round(sales_tax_estimate + employer_pension, 2)
     # Cash actually earmarked from sales since cash baseline (sidebar / till)
     cash_set_aside = round(float(tax_reserve or 0) + float(vat_reserve or 0), 2)
-    still_to_set_aside = round(max(0.0, estimated_total_tax - cash_set_aside), 2)
+    # Gap vs what sales accrual should have set aside — exclude pension
+    still_to_set_aside = round(max(0.0, sales_tax_estimate - cash_set_aside), 2)
     available = round(float(cash_on_hand or 0) - cash_set_aside, 2)
 
     warnings = []
