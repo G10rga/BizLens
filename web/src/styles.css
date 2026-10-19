@@ -800,6 +800,71 @@ html[data-theme="dark"] .tile-qty {
   min-height: 4px;
 }
 .chart-wrap { height: min(320px, 55vw); min-height: 220px; }
+.chart-wrap-lg { height: min(420px, 70vw); min-height: 280px; }
+.chart-wrap-bars { height: min(280px, 55vw); min-height: 200px; }
+.cashflow-hero {
+  background:
+    linear-gradient(180deg, rgba(27, 67, 50, 0.04), transparent 42%),
+    var(--card);
+}
+.cash-zone-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+  margin: 0 0 0.85rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.cash-zone-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.cash-zone-legend i.zone {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 2px;
+  display: inline-block;
+}
+.cash-zone-legend i.safe { background: rgba(16, 185, 129, 0.45); }
+.cash-zone-legend i.caution { background: rgba(245, 158, 11, 0.55); }
+.cash-zone-legend i.danger { background: rgba(239, 68, 68, 0.5); }
+.cash-zone-legend i.expense {
+  background: #dc2626;
+  border-radius: 999px;
+}
+.cash-zone-legend i.season {
+  background: linear-gradient(90deg, rgba(16, 185, 129, 0.7), rgba(245, 158, 11, 0.7));
+  width: 0.9rem;
+  height: 0.2rem;
+  border-radius: 1px;
+}
+.season-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+.season-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+.season-chip strong { font-weight: 600; color: var(--heading); }
+.season-chip em {
+  font-style: normal;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.season-chip.up { border-color: rgba(16, 185, 129, 0.35); background: rgba(16, 185, 129, 0.08); }
+.season-chip.down { border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.1); }
 
 .brand-home {
   display: flex;
