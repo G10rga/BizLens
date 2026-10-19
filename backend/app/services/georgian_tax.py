@@ -538,14 +538,22 @@ def estimate_period(
     if p["has_employees"] and p["pension_participants"] and salary_expense_total > 0:
         employer_pension = round(salary_expense_total * PENSION_EMPLOYER_RATE, 2)
 
-    total_reserve = round(float(tax_reserve or 0) + float(vat_reserve or 0), 2)
-    available = round(float(cash_on_hand or 0) - total_reserve, 2)
+    # Period tax implied by income/expenses under the chosen profile (YTD card)
+    estimated_total_tax = round(
+        estimated_income_tax + estimated_vat + employer_pension, 2
+    )
+    # Cash actually earmarked from sales since cash baseline (sidebar / till)
+    cash_set_aside = round(float(tax_reserve or 0) + float(vat_reserve or 0), 2)
+    still_to_set_aside = round(max(0.0, estimated_total_tax - cash_set_aside), 2)
+    available = round(float(cash_on_hand or 0) - cash_set_aside, 2)
 
     warnings = []
     if not is_vat and rolling_12m >= VAT_ROLLING_THRESHOLD * 0.9:
         warnings.append("approaching_vat_threshold")
     if regime == "small" and ytd_turnover_value >= SMALL_TURNOVER_CAP * 0.9:
         warnings.append("approaching_small_cap")
+    if still_to_set_aside > 1:
+        warnings.append("reserve_behind_estimate")
 
     return {
         "income_total": round(income_total, 2),
@@ -554,9 +562,12 @@ def estimate_period(
         "estimated_income_tax": estimated_income_tax,
         "estimated_vat": estimated_vat,
         "employer_pension_estimate": employer_pension,
+        "estimated_total_tax": estimated_total_tax,
         "tax_reserve": round(float(tax_reserve or 0), 2),
         "vat_reserve": round(float(vat_reserve or 0), 2),
-        "total_tax_reserve": total_reserve,
+        "total_tax_reserve": cash_set_aside,
+        "cash_set_aside": cash_set_aside,
+        "still_to_set_aside": still_to_set_aside,
         "cash_on_hand": round(float(cash_on_hand or 0), 2),
         "available_cash": available,
         "ytd_turnover": round(ytd_turnover_value, 2),

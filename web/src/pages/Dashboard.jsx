@@ -605,7 +605,7 @@ export default function Dashboard() {
             <>
               <h3 className="section-title">{t('dashboard.taxTitle')}</h3>
               <p className="muted" style={{ marginTop: 0 }}>{t('dashboard.taxHint')}</p>
-              <div className="grid grid-4" style={{ marginBottom: '1.25rem' }}>
+              <div className="grid grid-4" style={{ marginBottom: '1rem' }}>
                 <div className="card">
                   <div className="label">{t('dashboard.taxIncome')}</div>
                   <div className="metric small">{money(data.tax_summary.income_total)}</div>
@@ -615,19 +615,54 @@ export default function Dashboard() {
                   <div className="metric small">{money(data.tax_summary.expense_total)}</div>
                 </div>
                 <div className="card">
-                  <div className="label">{t('dashboard.taxReserve')}</div>
-                  <div className="metric small">{money(data.tax_summary.total_tax_reserve)}</div>
-                  {data.tax_summary.vat_reserve > 0 && (
-                    <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.85rem' }}>
-                      {t('dashboard.taxVatReserve')}: {money(data.tax_summary.vat_reserve)}
-                    </div>
-                  )}
+                  <div className="label">{t('dashboard.taxEstimated')}</div>
+                  <div className="metric small">
+                    {money(
+                      data.tax_summary.estimated_total_tax
+                        ?? (
+                          (data.tax_summary.estimated_income_tax || 0)
+                          + (data.tax_summary.estimated_vat || 0)
+                          + (data.tax_summary.employer_pension_estimate || 0)
+                        ),
+                    )}
+                  </div>
+                  <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.85rem' }}>
+                    {data.tax_summary.estimated_vat > 0 && (
+                      <>{t('dashboard.taxVatReserve')}: {money(data.tax_summary.estimated_vat)} · </>
+                    )}
+                    {t('dashboard.taxIncomeTaxEst')}: {money(data.tax_summary.estimated_income_tax || 0)}
+                    {data.tax_summary.employer_pension_estimate > 0 && (
+                      <> · {t('dashboard.taxPensionEst')}: {money(data.tax_summary.employer_pension_estimate)}</>
+                    )}
+                  </div>
                 </div>
                 <div className="card">
                   <div className="label">{t('dashboard.taxAvailable')}</div>
                   <div className="metric small">{money(data.tax_summary.available_cash)}</div>
+                  <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.85rem' }}>
+                    {t('dashboard.taxSetAside')}: {money(data.tax_summary.cash_set_aside ?? data.tax_summary.total_tax_reserve)}
+                  </div>
                 </div>
               </div>
+              {(data.tax_summary.still_to_set_aside > 0 || data.tax_summary.warnings?.includes('reserve_behind_estimate')) && (
+                <div className="card warn-note" style={{ marginBottom: '1.25rem' }}>
+                  <strong>{t('dashboard.taxGapTitle')}</strong>
+                  <p className="muted" style={{ margin: '0.35rem 0 0' }}>
+                    {t('dashboard.taxGapBody', {
+                      estimated: money(
+                        data.tax_summary.estimated_total_tax
+                          ?? (
+                            (data.tax_summary.estimated_income_tax || 0)
+                            + (data.tax_summary.estimated_vat || 0)
+                            + (data.tax_summary.employer_pension_estimate || 0)
+                          ),
+                      ),
+                      setAside: money(data.tax_summary.cash_set_aside ?? data.tax_summary.total_tax_reserve),
+                      gap: money(data.tax_summary.still_to_set_aside || 0),
+                    })}
+                  </p>
+                </div>
+              )}
             </>
           )}
 
