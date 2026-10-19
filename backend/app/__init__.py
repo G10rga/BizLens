@@ -17,6 +17,7 @@ from .routes import (
     products,
     sales,
     settings,
+    tax,
 )
 from .seed import seed_demo_if_needed
 
@@ -45,6 +46,7 @@ def create_app(config_object=Config):
     app.register_blueprint(csv_import.bp)
     app.register_blueprint(lens.bp)
     app.register_blueprint(settings.bp)
+    app.register_blueprint(tax.bp)
 
     dist = Path(app.config["FRONTEND_DIST"])
     stitch = Path(app.config["STITCH_DIR"])
@@ -124,17 +126,31 @@ def _ensure_schema_compat() -> None:
         insp = inspect(eng)
         tables = set(insp.get_table_names())
 
-        # Original SQLite-only patch for Lens Mode column
-        if dialect == "sqlite" and "businesses" in tables:
+        if "businesses" in tables:
             cols = {c["name"] for c in insp.get_columns("businesses")}
+            business_patches = []
             if "lens_expected_receipts_per_day" not in cols:
+                business_patches.append(
+                    "ADD COLUMN lens_expected_receipts_per_day INTEGER NOT NULL DEFAULT 10"
+                )
+            tax_cols = [
+                ("legal_form", "VARCHAR(16)"),
+                ("tax_regime", "VARCHAR(32)"),
+                ("is_vat_payer", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("has_employees", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("pension_participants", "BOOLEAN NOT NULL DEFAULT TRUE"),
+                ("llc_distributes_profit", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("tax_profile_complete", "BOOLEAN NOT NULL DEFAULT FALSE"),
+                ("tax_reserve", "FLOAT NOT NULL DEFAULT 0"),
+                ("vat_reserve", "FLOAT NOT NULL DEFAULT 0"),
+            ]
+            for col_name, col_type in tax_cols:
+                if col_name not in cols:
+                    business_patches.append(f"ADD COLUMN {col_name} {col_type}")
+            if business_patches:
                 with eng.begin() as conn:
-                    conn.execute(
-                        text(
-                            "ALTER TABLE businesses "
-                            "ADD COLUMN lens_expected_receipts_per_day INTEGER NOT NULL DEFAULT 10"
-                        )
-                    )
+                    for patch in business_patches:
+                        conn.execute(text(f"ALTER TABLE businesses {patch}"))
 
         if "products" in tables:
             cols = {c["name"] for c in insp.get_columns("products")}

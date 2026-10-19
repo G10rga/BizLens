@@ -271,6 +271,51 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {data.tax_summary && (
+            <>
+              <h3 className="section-title">{t('dashboard.taxTitle')}</h3>
+              <p className="muted" style={{ marginTop: 0 }}>{t('dashboard.taxHint')}</p>
+              <div className="grid grid-4" style={{ marginBottom: '1.25rem' }}>
+                <div className="card">
+                  <div className="label">{t('dashboard.taxIncome')}</div>
+                  <div className="metric small">{money(data.tax_summary.income_total)}</div>
+                </div>
+                <div className="card">
+                  <div className="label">{t('dashboard.taxExpenses')}</div>
+                  <div className="metric small">{money(data.tax_summary.expense_total)}</div>
+                </div>
+                <div className="card">
+                  <div className="label">{t('dashboard.taxReserve')}</div>
+                  <div className="metric small">{money(data.tax_summary.total_tax_reserve)}</div>
+                  {data.tax_summary.vat_reserve > 0 && (
+                    <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.85rem' }}>
+                      {t('dashboard.taxVatReserve')}: {money(data.tax_summary.vat_reserve)}
+                    </div>
+                  )}
+                </div>
+                <div className="card">
+                  <div className="label">{t('dashboard.taxAvailable')}</div>
+                  <div className="metric small">{money(data.tax_summary.available_cash)}</div>
+                </div>
+              </div>
+              {data.tax_summary.obligations?.length > 0 && (
+                <div className="card" style={{ marginBottom: '1rem' }}>
+                  <h3 style={{ marginTop: 0 }}>{t('dashboard.taxObligations')}</h3>
+                  <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+                    {data.tax_summary.obligations.map((o) => (
+                      <li key={o.code} style={{ marginBottom: '0.35rem' }}>
+                        {lang === 'ka' ? (o.title_ka || o.title_en) : (o.title_en || o.title_ka)}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 0 }}>
+                    {t('dashboard.taxDisclaimer')}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
           <h3 className="section-title">
             {t('dashboard.cashTitle')}
           </h3>
@@ -281,6 +326,11 @@ export default function Dashboard() {
             <div className="card">
               <div className="label">{t('dashboard.cashNow')}</div>
               <div className="metric">{money(data.summary.cash_today)}</div>
+              {data.summary.available_cash != null && (
+                <div className="muted" style={{ marginTop: '0.35rem', fontSize: '0.85rem' }}>
+                  {t('dashboard.taxAvailable')}: {money(data.summary.available_cash)}
+                </div>
+              )}
             </div>
             <div className="card">
               <div className="label">{t('dashboard.cash30')}</div>

@@ -53,6 +53,16 @@ class Business(db.Model, TimestampMixin):
     cash_baseline_date = db.Column(db.Date, default=date.today, nullable=False)
     # Lens Mode: expected fiscal receipts/day for completeness + forecast confidence
     lens_expected_receipts_per_day = db.Column(db.Integer, nullable=False, default=10)
+    # Georgian tax profile (legal form distinct from industry business_type)
+    legal_form = db.Column(db.String(16), nullable=True)  # ie | llc
+    tax_regime = db.Column(db.String(32), nullable=True)  # micro | small | general | llc_estonian
+    is_vat_payer = db.Column(db.Boolean, nullable=False, default=False)
+    has_employees = db.Column(db.Boolean, nullable=False, default=False)
+    pension_participants = db.Column(db.Boolean, nullable=False, default=True)
+    llc_distributes_profit = db.Column(db.Boolean, nullable=False, default=False)
+    tax_profile_complete = db.Column(db.Boolean, nullable=False, default=False)
+    tax_reserve = db.Column(db.Float, nullable=False, default=0.0)
+    vat_reserve = db.Column(db.Float, nullable=False, default=0.0)
 
     owner = db.relationship("User", back_populates="business")
     products = db.relationship("Product", back_populates="business", cascade="all, delete-orphan")
@@ -75,6 +85,9 @@ class Business(db.Model, TimestampMixin):
     )
 
     def to_dict(self):
+        tax_r = float(self.tax_reserve or 0)
+        vat_r = float(self.vat_reserve or 0)
+        cash = float(self.cash_on_hand or 0)
         return {
             "id": self.id,
             "name": self.name,
@@ -84,6 +97,17 @@ class Business(db.Model, TimestampMixin):
             "onboarding_complete": self.onboarding_complete,
             "cash_baseline_date": self.cash_baseline_date.isoformat(),
             "lens_expected_receipts_per_day": self.lens_expected_receipts_per_day,
+            "legal_form": self.legal_form,
+            "tax_regime": self.tax_regime,
+            "is_vat_payer": bool(self.is_vat_payer),
+            "has_employees": bool(self.has_employees),
+            "pension_participants": bool(self.pension_participants),
+            "llc_distributes_profit": bool(self.llc_distributes_profit),
+            "tax_profile_complete": bool(self.tax_profile_complete),
+            "tax_reserve": tax_r,
+            "vat_reserve": vat_r,
+            "total_tax_reserve": round(tax_r + vat_r, 2),
+            "available_cash": round(cash - tax_r - vat_r, 2),
         }
 
 

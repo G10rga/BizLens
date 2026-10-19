@@ -124,6 +124,27 @@ export default function Layout() {
           <div className="muted sidebar-muted">
             {t('nav.cashOnHand', { amount: money(business?.cash_on_hand) })}
           </div>
+          {business?.tax_profile_complete && (
+            <>
+              <div className="muted sidebar-muted">
+                {t('nav.taxReserve', {
+                  amount: money(
+                    (business?.tax_reserve || 0) + (business?.vat_reserve || 0),
+                  ),
+                })}
+              </div>
+              <div className="muted sidebar-muted">
+                {t('nav.availableCash', {
+                  amount: money(
+                    business?.available_cash ??
+                      (business?.cash_on_hand || 0) -
+                        (business?.tax_reserve || 0) -
+                        (business?.vat_reserve || 0),
+                  ),
+                })}
+              </div>
+            </>
+          )}
           <button className="btn ghost sidebar-action lgout" type="button" onClick={logout}>
             {t('common.logout')}
           </button>

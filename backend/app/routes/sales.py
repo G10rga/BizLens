@@ -6,6 +6,7 @@ from flask_jwt_extended import jwt_required
 from ..extensions import db
 from ..models import Product, Sale, SaleItem
 from ..services.sales_agg import today_sales_summary, upsert_daily_revenue
+from ..services.tax_accrual import accrue_income_tax
 from .helpers import require_business
 
 bp = Blueprint("sales", __name__, url_prefix="/api/sales")
@@ -70,6 +71,7 @@ def create_sale(business):
     # Keep cash_on_hand roughly in sync for cash payments (demo-friendly)
     if payment_method == "cash":
         business.cash_on_hand = float(business.cash_on_hand) + sale.total
+    accrue_income_tax(business, sale.total, date.today())
 
     db.session.commit()
     return jsonify(sale.to_dict()), 201

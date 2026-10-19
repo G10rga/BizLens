@@ -9,6 +9,7 @@ from . import (
     products,
     sales,
     settings,
+    tax,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "products",
     "sales",
     "settings",
+    "tax",
 ]

@@ -56,6 +56,22 @@ export function validateBusinessProfile(profile, t) {
   return errors
 }
 
+export function validateTaxProfile(tax, t) {
+  const errors = {}
+  if (!tax.legal_form) errors.legal_form = t('validation.legalFormRequired')
+  if (!tax.tax_regime) errors.tax_regime = t('validation.taxRegimeRequired')
+  if (tax.is_vat_payer === '' || tax.is_vat_payer === null || tax.is_vat_payer === undefined) {
+    errors.is_vat_payer = t('validation.vatRequired')
+  }
+  if (tax.has_employees === '' || tax.has_employees === null || tax.has_employees === undefined) {
+    errors.has_employees = t('validation.employeesRequired')
+  }
+  if (tax.tax_regime === 'unsure' && !tax.turnover_band) {
+    errors.turnover_band = t('validation.turnoverBandRequired')
+  }
+  return errors
+}
+
 export function validateExpenses(expenses, t) {
   const errors = {}
   expenses.forEach((exp, i) => {

@@ -17,6 +17,7 @@ from .models import (
 )
 from .services.georgian_calendar import daily_seasonality_factor
 from .services.sales_agg import upsert_daily_revenue
+from .services.tax_accrual import rebuild_tax_reserves
 
 
 DEMO_EMAIL = "demo@bizlens.ge"
@@ -25,9 +26,29 @@ DEMO_PASSWORD = "demo1234"
 
 def seed_demo_if_needed(app) -> None:
     with app.app_context():
-        if User.query.filter_by(email=DEMO_EMAIL).first():
+        existing = User.query.filter_by(email=DEMO_EMAIL).first()
+        if existing:
+            _ensure_demo_tax_profile(existing)
             return
         _create_demo()
+
+
+def _ensure_demo_tax_profile(user: User) -> None:
+    """Backfill tax fields for an already-seeded demo business."""
+    business = user.business
+    if not business:
+        return
+    if business.tax_profile_complete and business.legal_form:
+        return
+    business.legal_form = business.legal_form or "ie"
+    business.tax_regime = business.tax_regime or "small"
+    business.is_vat_payer = False
+    business.has_employees = True
+    business.pension_participants = True
+    business.llc_distributes_profit = False
+    business.tax_profile_complete = True
+    rebuild_tax_reserves(business)
+    db.session.commit()
 
 
 def _create_demo() -> None:
@@ -45,6 +66,15 @@ def _create_demo() -> None:
         cash_on_hand=1850.0,
         onboarding_complete=True,
         cash_baseline_date=date.today(),
+        legal_form="ie",
+        tax_regime="small",
+        is_vat_payer=False,
+        has_employees=True,
+        pension_participants=True,
+        llc_distributes_profit=False,
+        tax_profile_complete=True,
+        tax_reserve=0.0,
+        vat_reserve=0.0,
     )
     db.session.add(business)
     db.session.flush()
@@ -115,6 +145,7 @@ def _create_demo() -> None:
         if i <= 3:
             _add_sample_pos_sales(business.id, product_rows, d, revenue)
 
+    rebuild_tax_reserves(business)
     db.session.commit()
 
 

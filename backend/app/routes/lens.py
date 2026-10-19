@@ -25,6 +25,7 @@ from ..services.receipt_ocr import (
     sample_receipt_text,
 )
 from ..services.sales_agg import upsert_daily_revenue
+from ..services.tax_accrual import accrue_income_tax
 from .helpers import require_business
 
 bp = Blueprint("lens", __name__, url_prefix="/api/lens")
@@ -352,6 +353,7 @@ def confirm(business):
     upsert_daily_revenue(business.id, rdate, sale.total, source="lens")
     if payment == "cash":
         business.cash_on_hand = float(business.cash_on_hand) + sale.total
+    accrue_income_tax(business, sale.total, rdate)
 
     cap.sale_id = sale.id
     cap.receipt_date = rdate

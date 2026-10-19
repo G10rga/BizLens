@@ -7,8 +7,20 @@ from ..config import Config
 from ..extensions import db
 from ..models import Alert, FixedExpense, SupplierPayment
 from ..services.alerts import build_alerts
-from ..services.cashflow import project_cashflow
+from ..services.cashflow import (
+    expand_fixed_expenses,
+    expand_supplier_payments,
+    merge_expense_maps,
+    project_cashflow,
+)
 from ..services.forecast import backtest_forecast, forecast_sales
+from ..services.georgian_tax import (
+    estimate_period,
+    expand_tax_payments,
+    profile_from_business,
+    rolling_12m_turnover,
+    ytd_turnover,
+)
 from ..services.lens_completeness import completeness_report, recent_capture_widen_factor
 from ..services.sales_agg import daily_rows_for_business
 from .helpers import require_business
@@ -35,16 +47,30 @@ def run_business_forecast(business, horizon_days=None):
     )
     expenses = [e.to_dict() for e in FixedExpense.query.filter_by(business_id=business.id).all()]
     suppliers = [s.to_dict() for s in SupplierPayment.query.filter_by(business_id=business.id).all()]
+    start_date = as_of + timedelta(days=1)
+    end_date = start_date + timedelta(days=horizon - 1)
+    tax_payments = None
+    if getattr(business, "tax_profile_complete", False):
+        tax_payments = expand_tax_payments(
+            profile=profile_from_business(business),
+            daily_rows=daily,
+            expenses=expenses,
+            start=start_date,
+            end=end_date,
+        )
     # Incomplete Lens capture → wider forecast ranges on the dashboard cards
     widen = recent_capture_widen_factor(business, lookback_days=7)
     cashflow = project_cashflow(
         starting_cash=float(business.cash_on_hand),
-        start_date=as_of + timedelta(days=1),
+        start_date=start_date,
         horizon_days=horizon,
         income_series=forecast["income_forecast"],
         expenses=expenses,
         suppliers=suppliers,
         range_widen_factor=widen,
+        tax_payments=tax_payments,
+        tax_reserve=float(getattr(business, "tax_reserve", 0) or 0),
+        vat_reserve=float(getattr(business, "vat_reserve", 0) or 0),
     )
     return forecast, cashflow, as_of
 
@@ -85,6 +111,41 @@ def dashboard(business):
     # Always compute 90 days so 30/60/90 sales cards stay correct
     forecast, cashflow, as_of = run_business_forecast(business, horizon_days=90)
     timeline = cashflow["timeline"]
+    daily = daily_rows_for_business(business.id)
+    tax_summary = None
+    if getattr(business, "tax_profile_complete", False):
+        year_start = date(as_of.year, 1, 1)
+        income_ytd = sum(
+            float(r["revenue"] or 0)
+            for r in daily
+            if year_start <= date.fromisoformat(r["date"]) <= as_of
+        )
+        expenses = [e.to_dict() for e in FixedExpense.query.filter_by(business_id=business.id).all()]
+        suppliers = [s.to_dict() for s in SupplierPayment.query.filter_by(business_id=business.id).all()]
+
+        merged = merge_expense_maps(
+            expand_fixed_expenses(expenses, year_start, as_of),
+            expand_supplier_payments(suppliers, year_start, as_of),
+        )
+        expense_ytd = 0.0
+        salary_ytd = 0.0
+        for items in merged.values():
+            for item in items:
+                amt = float(item.get("amount") or 0)
+                expense_ytd += amt
+                if (item.get("name") or "").lower() == "salaries":
+                    salary_ytd += amt
+        tax_summary = estimate_period(
+            profile=profile_from_business(business),
+            income_total=income_ytd,
+            expense_total=expense_ytd,
+            salary_expense_total=salary_ytd,
+            tax_reserve=float(business.tax_reserve or 0),
+            vat_reserve=float(business.vat_reserve or 0),
+            cash_on_hand=float(business.cash_on_hand or 0),
+            ytd_turnover_value=ytd_turnover(daily, as_of),
+            rolling_12m=rolling_12m_turnover(daily, as_of),
+        )
     return jsonify(
         {
             "business": business.to_dict(),
@@ -108,6 +169,7 @@ def dashboard(business):
                 if timeline and m["date"] <= timeline[min(len(timeline), chart_horizon) - 1]["date"]
             ] if timeline else cashflow["expense_markers"],
             "summary": cashflow["summary"],
+            "tax_summary": tax_summary,
             "lens_completeness": completeness_report(business, days=14),
             "thresholds": {
                 "green": Config.CASH_GREEN_THRESHOLD,

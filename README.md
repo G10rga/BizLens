@@ -54,7 +54,8 @@ Every sale — whether it came from the POS, a photographed receipt, or a CSV ro
 |------|--------------------|
 | **Landing** | Brand intro, feature overview, KA/EN + theme toggle |
 | **Auth** | Register / login with JWT; session kept in the browser |
-| **Onboarding** | 4-step setup: business profile → fixed expenses → suppliers → cash on hand |
+| **Onboarding** | 5-step setup: business profile → tax profile → fixed expenses → suppliers → cash on hand |
+| **Tax profile** | Georgian legal form (IE/LLC), tax regime, VAT, employees → obligations + cash tax reserve |
 | **POS / Till** | Tap products into a cart, choose cash or card, save the sale |
 | **Products** | Catalog CRUD (name, price, category, active flag) |
 | **Today’s sales** | Day total, POS vs Lens vs CSV breakdown, cash/card split |
@@ -78,13 +79,14 @@ All of the above uses **live API data**, not static mocks.
 3. Until onboarding is finished, the app routes them to `/onboarding`.  
 4. Onboarding creates a `Business` owned by that user:
 
-   - Name, type (`bakery` | `restaurant` | `retail` | `pharmacy` | `salon` | `other`)  
+   - Name, activity type (`bakery` | `restaurant` | `retail` | `pharmacy` | `salon` | `other`)  
    - City (`Tbilisi`, `Batumi`, `Kutaisi`, …)  
+   - **Tax profile**: legal form (IE / LLC), tax regime (micro / small / general / LLC Estonian), VAT, employees  
    - Fixed expenses (rent, salaries, utilities, other) with **due day of month**  
    - Supplier payments with **amount**, **every N days**, **next due date**  
    - **Cash on hand** baseline (starting balance for projections)
 
-Business type matters: it selects the Georgian seasonality multipliers used in forecasts and alerts.
+Activity type selects Georgian seasonality multipliers. The tax profile drives obligation lists, estimated tax/VAT reserves on recorded income, and “truly available” cash on the dashboard. Estimates use published Georgian rates — they are **not** tax advice.
 
 ### 2. Three ways sales enter the system
 
@@ -248,7 +250,8 @@ Browser → SPA (web/dist)
 | `/api/expenses` | Fixed expenses & suppliers |
 | `/api/forecast` | Dashboard payload, refresh alerts, backtest |
 | `/api/alerts` | List / acknowledge |
-| `/api/settings` | Business & preferences |
+| `/api/settings` | Business & preferences (incl. tax profile) |
+| `/api/tax` | Tax summary, obligations, reserves |
 
 ---
 

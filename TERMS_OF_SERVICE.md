@@ -36,7 +36,7 @@ You may use BizLens for lawful business purposes, including recording sales, man
 
 ## 4. Financial Data and Forecasts
 
-BizLens generates cash-flow forecasts based on data you provide. These forecasts are **for informational and planning purposes only**. They do not constitute financial, tax, accounting, or legal advice. We make no warranty that any forecast will be accurate or that you will achieve the projected results. Always consult a qualified professional before making financial decisions.
+BizLens generates cash-flow forecasts and tax-reserve estimates based on data you provide and published Georgian tax rates/thresholds. These are **for informational and planning purposes only**. They do not constitute financial, tax, accounting, or legal advice. We make no warranty that any forecast or tax estimate will be accurate or that you will achieve the projected results. Always consult a qualified professional (and RS.ge) before making financial or tax decisions.
 
 ---
 

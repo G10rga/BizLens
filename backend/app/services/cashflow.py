@@ -79,18 +79,25 @@ def project_cashflow(
     expenses: List[dict],
     suppliers: List[dict],
     range_widen_factor: float = 1.0,
+    tax_payments: Dict[date, List[dict]] | None = None,
+    tax_reserve: float = 0.0,
+    vat_reserve: float = 0.0,
 ) -> dict:
     """
     income_series items: {date, yhat, yhat_lower, yhat_upper}
     Returns timeline for most_likely / best / worst cash paths.
     range_widen_factor > 1 widens summary bands (e.g. incomplete Lens capture).
+    tax_payments: optional map of remittance dates → tax expense items (15th).
     """
     widen = max(1.0, min(float(range_widen_factor or 1.0), 2.0))
     end = start_date + timedelta(days=horizon_days - 1)
-    expense_map = merge_expense_maps(
+    maps = [
         expand_fixed_expenses(expenses, start_date, end),
         expand_supplier_payments(suppliers, start_date, end),
-    )
+    ]
+    if tax_payments:
+        maps.append(tax_payments)
+    expense_map = merge_expense_maps(*maps)
 
     income_by_date = {date.fromisoformat(i["date"]) if isinstance(i["date"], str) else i["date"]: i for i in income_series}
 
@@ -177,8 +184,16 @@ def project_cashflow(
         max_pct=cash_max_pct,
     )
 
+    tax_r = round(float(tax_reserve or 0), 2)
+    vat_r = round(float(vat_reserve or 0), 2)
+    total_tax_r = round(tax_r + vat_r, 2)
+    available_today = round(starting_cash - total_tax_r, 2)
     summary = {
         "cash_today": round(starting_cash, 2),
+        "tax_reserve": tax_r,
+        "vat_reserve": vat_r,
+        "total_tax_reserve": total_tax_r,
+        "available_cash": available_today,
         "cash_30": cash_30,
         "cash_60": cash_60,
         "cash_90": _cash_at(timeline, min(len(timeline) - 1, 89)),

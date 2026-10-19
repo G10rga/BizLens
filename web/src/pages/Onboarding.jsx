@@ -10,14 +10,18 @@ import {
   validateCash,
   validateExpenses,
   validateSuppliers,
+  validateTaxProfile,
 } from '../validation'
 
 const TYPE_KEYS = ['bakery', 'restaurant', 'retail', 'pharmacy', 'salon', 'other']
 const CITY_KEYS = ['Tbilisi', 'Batumi', 'Kutaisi', 'Other']
+const LEGAL_FORMS = ['ie', 'llc']
+const TAX_REGIMES_IE = ['micro', 'small', 'general', 'unsure']
+const TURNOVER_BANDS = ['under_30k', '30k_100k', '100k_500k', 'over_500k']
 
 export default function Onboarding() {
   const { user, refresh } = useAuth()
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const [step, setStep] = useState(1)
   const [error, setError] = useState('')
   const [errors, setErrors] = useState({})
@@ -27,6 +31,17 @@ export default function Onboarding() {
     business_type: '',
     city: '',
   })
+  const [tax, setTax] = useState({
+    legal_form: '',
+    tax_regime: '',
+    is_vat_payer: '',
+    has_employees: '',
+    pension_participants: true,
+    llc_distributes_profit: false,
+    turnover_band: '',
+  })
+  const [obligations, setObligations] = useState([])
+  const [recommendedLabel, setRecommendedLabel] = useState('')
   const [expenses, setExpenses] = useState([
     { name: 'rent', amount: '', due_day: 1 },
     { name: 'salaries', amount: '', due_day: 1 },
@@ -39,6 +54,58 @@ export default function Onboarding() {
   const [cash, setCash] = useState('')
 
   if (user?.onboarding_complete) return <Navigate to="/pos" replace />
+
+  const obligationTitle = (o) => (lang === 'ka' ? o.title_ka || o.title_en : o.title_en || o.title_ka)
+  const obligationDetail = (o) => (lang === 'ka' ? o.detail_ka || o.detail_en : o.detail_en || o.detail_ka)
+
+  const buildTaxPayload = () => {
+    const isVat =
+      tax.is_vat_payer === 'unsure'
+        ? 'unsure'
+        : tax.is_vat_payer === true || tax.is_vat_payer === 'true' || tax.is_vat_payer === 'yes'
+    const hasEmp = tax.has_employees === true || tax.has_employees === 'true' || tax.has_employees === 'yes'
+    const payload = {
+      legal_form: tax.legal_form,
+      tax_regime: tax.legal_form === 'llc' ? 'llc_estonian' : tax.tax_regime,
+      is_vat_payer: isVat,
+      has_employees: hasEmp,
+      pension_participants: Boolean(tax.pension_participants),
+      llc_distributes_profit: tax.legal_form === 'llc' ? Boolean(tax.llc_distributes_profit) : false,
+      turnover_band: tax.turnover_band || undefined,
+      recommend: tax.tax_regime === 'unsure' || tax.is_vat_payer === 'unsure',
+    }
+    return payload
+  }
+
+  const fetchRecommendation = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      const payload = buildTaxPayload()
+      const res = await api('/onboarding/tax-recommend', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+      const s = res.suggestion || {}
+      setTax((prev) => ({
+        ...prev,
+        legal_form: s.legal_form || prev.legal_form,
+        tax_regime: s.tax_regime,
+        is_vat_payer: s.is_vat_payer ? 'true' : 'false',
+        has_employees: s.has_employees ? 'true' : prev.has_employees,
+      }))
+      setObligations(res.obligations || [])
+      setRecommendedLabel(
+        t('onboarding.recommended', {
+          regime: t(`onboarding.taxRegimes.${s.tax_regime}`) || s.tax_regime,
+        }),
+      )
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const next = async () => {
     setBusy(true)
@@ -61,6 +128,19 @@ export default function Onboarding() {
         })
         setStep(2)
       } else if (step === 2) {
+        const nextErrors = validateTaxProfile(tax, t)
+        if (Object.keys(nextErrors).length) {
+          setErrors(nextErrors)
+          setError(firstError(nextErrors))
+          return
+        }
+        const res = await api('/onboarding/tax-profile', {
+          method: 'POST',
+          body: JSON.stringify(buildTaxPayload()),
+        })
+        setObligations(res.obligations || [])
+        setStep(3)
+      } else if (step === 3) {
         const nextErrors = validateExpenses(expenses, t)
         if (Object.keys(nextErrors).length) {
           setErrors(nextErrors)
@@ -77,8 +157,8 @@ export default function Onboarding() {
             })),
           }),
         })
-        setStep(3)
-      } else if (step === 3) {
+        setStep(4)
+      } else if (step === 4) {
         const { skip, errors: nextErrors } = validateSuppliers(suppliers, t)
         if (Object.keys(nextErrors).length) {
           setErrors(nextErrors)
@@ -102,7 +182,7 @@ export default function Onboarding() {
             }),
           })
         }
-        setStep(4)
+        setStep(5)
       } else {
         const cashErr = validateCash(cash, t)
         if (cashErr) {
@@ -129,7 +209,7 @@ export default function Onboarding() {
     setErrors({})
     try {
       await api('/onboarding/suppliers', { method: 'POST', body: JSON.stringify({ skip: true }) })
-      setStep(4)
+      setStep(5)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -138,6 +218,7 @@ export default function Onboarding() {
   }
 
   const expenseLabel = (name) => t(`onboarding.expenses.${name}`) || name
+  const regimeOptions = tax.legal_form === 'llc' ? ['llc_estonian'] : TAX_REGIMES_IE
 
   return (
     <div className="auth-page">
@@ -197,7 +278,154 @@ export default function Onboarding() {
           </>
         )}
 
-        {step === 2 &&
+        {step === 2 && (
+          <>
+            <h2 style={{ marginTop: 0 }}>{t('onboarding.taxTitle')}</h2>
+            <p className="muted" style={{ marginTop: 0 }}>{t('onboarding.taxSubtitle')}</p>
+
+            <div className="field">
+              <label>{t('onboarding.legalForm')}</label>
+              <select
+                className={errors.legal_form ? 'invalid' : ''}
+                value={tax.legal_form}
+                onChange={(e) => {
+                  const legal_form = e.target.value
+                  setTax({
+                    ...tax,
+                    legal_form,
+                    tax_regime: legal_form === 'llc' ? 'llc_estonian' : tax.tax_regime === 'llc_estonian' ? '' : tax.tax_regime,
+                  })
+                  setObligations([])
+                  setRecommendedLabel('')
+                }}
+              >
+                <option value="">{t('onboarding.selectLegalForm')}</option>
+                {LEGAL_FORMS.map((v) => (
+                  <option key={v} value={v}>{t(`onboarding.legalForms.${v}`)}</option>
+                ))}
+              </select>
+              {errors.legal_form && <p className="field-error">{errors.legal_form}</p>}
+            </div>
+
+            <div className="field">
+              <label>{t('onboarding.taxRegime')}</label>
+              <select
+                className={errors.tax_regime ? 'invalid' : ''}
+                value={tax.tax_regime}
+                disabled={!tax.legal_form}
+                onChange={(e) => {
+                  setTax({ ...tax, tax_regime: e.target.value })
+                  setObligations([])
+                }}
+              >
+                <option value="">{t('onboarding.selectTaxRegime')}</option>
+                {regimeOptions.map((v) => (
+                  <option key={v} value={v}>{t(`onboarding.taxRegimes.${v}`)}</option>
+                ))}
+              </select>
+              {errors.tax_regime && <p className="field-error">{errors.tax_regime}</p>}
+            </div>
+
+            {(tax.tax_regime === 'unsure' || tax.is_vat_payer === 'unsure') && (
+              <div className="field">
+                <label>{t('onboarding.turnoverBand')}</label>
+                <select
+                  className={errors.turnover_band ? 'invalid' : ''}
+                  value={tax.turnover_band}
+                  onChange={(e) => setTax({ ...tax, turnover_band: e.target.value })}
+                >
+                  <option value="">{t('onboarding.selectTurnover')}</option>
+                  {TURNOVER_BANDS.map((b) => (
+                    <option key={b} value={b}>{t(`onboarding.turnoverBands.${b}`)}</option>
+                  ))}
+                </select>
+                {errors.turnover_band && <p className="field-error">{errors.turnover_band}</p>}
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ marginTop: '0.5rem' }}
+                  disabled={busy || !tax.turnover_band}
+                  onClick={fetchRecommendation}
+                >
+                  {t('onboarding.getRecommendation')}
+                </button>
+                {recommendedLabel && <p className="muted">{recommendedLabel}</p>}
+              </div>
+            )}
+
+            <div className="field">
+              <label>{t('onboarding.vatPayer')}</label>
+              <select
+                className={errors.is_vat_payer ? 'invalid' : ''}
+                value={tax.is_vat_payer === true ? 'true' : tax.is_vat_payer === false ? 'false' : tax.is_vat_payer}
+                onChange={(e) => setTax({ ...tax, is_vat_payer: e.target.value })}
+              >
+                <option value="">{t('onboarding.selectTaxRegime')}</option>
+                <option value="true">{t('onboarding.vatYes')}</option>
+                <option value="false">{t('onboarding.vatNo')}</option>
+                <option value="unsure">{t('onboarding.vatUnsure')}</option>
+              </select>
+              {errors.is_vat_payer && <p className="field-error">{errors.is_vat_payer}</p>}
+            </div>
+
+            <div className="field">
+              <label>{t('onboarding.hasEmployees')}</label>
+              <select
+                className={errors.has_employees ? 'invalid' : ''}
+                value={tax.has_employees === true ? 'true' : tax.has_employees === false ? 'false' : tax.has_employees}
+                onChange={(e) => setTax({ ...tax, has_employees: e.target.value })}
+              >
+                <option value="">—</option>
+                <option value="true">{t('onboarding.yes')}</option>
+                <option value="false">{t('onboarding.no')}</option>
+              </select>
+              {errors.has_employees && <p className="field-error">{errors.has_employees}</p>}
+            </div>
+
+            {(tax.has_employees === true || tax.has_employees === 'true') && (
+              <div className="field">
+                <label>{t('onboarding.pensionParticipants')}</label>
+                <select
+                  value={tax.pension_participants ? 'true' : 'false'}
+                  onChange={(e) => setTax({ ...tax, pension_participants: e.target.value === 'true' })}
+                >
+                  <option value="true">{t('onboarding.yes')}</option>
+                  <option value="false">{t('onboarding.no')}</option>
+                </select>
+              </div>
+            )}
+
+            {tax.legal_form === 'llc' && (
+              <div className="field">
+                <label>{t('onboarding.llcDistributes')}</label>
+                <select
+                  value={tax.llc_distributes_profit ? 'true' : 'false'}
+                  onChange={(e) => setTax({ ...tax, llc_distributes_profit: e.target.value === 'true' })}
+                >
+                  <option value="false">{t('onboarding.no')}</option>
+                  <option value="true">{t('onboarding.yes')}</option>
+                </select>
+              </div>
+            )}
+
+            {obligations.length > 0 && (
+              <div className="card" style={{ marginTop: '0.75rem' }}>
+                <h3 style={{ marginTop: 0 }}>{t('onboarding.obligationsTitle')}</h3>
+                <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+                  {obligations.map((o) => (
+                    <li key={o.code} style={{ marginBottom: '0.5rem' }}>
+                      <strong>{obligationTitle(o)}</strong>
+                      <div className="muted">{obligationDetail(o)}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="muted" style={{ fontSize: '0.85rem' }}>{t('onboarding.taxDisclaimer')}</p>
+          </>
+        )}
+
+        {step === 3 &&
           expenses.map((exp, i) => (
             <div className="row" key={exp.name}>
               <div className="field" style={{ flex: 2 }}>
@@ -235,7 +463,7 @@ export default function Onboarding() {
             </div>
           ))}
 
-        {step === 3 && (
+        {step === 4 && (
           <>
             {suppliers.map((s, i) => (
               <div key={i} className="card" style={{ marginBottom: '0.75rem' }}>
@@ -293,7 +521,7 @@ export default function Onboarding() {
           </>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div className="field">
             <label>{t('onboarding.cashNow')}</label>
             <input
@@ -308,7 +536,7 @@ export default function Onboarding() {
         )}
 
         <button className="btn" style={{ width: '100%', marginTop: '0.5rem' }} disabled={busy} onClick={next}>
-          {busy ? t('common.saving') : step === 4 ? t('onboarding.finish') : t('common.next')}
+          {busy ? t('common.saving') : step === 5 ? t('onboarding.finish') : t('common.next')}
         </button>
         <p className="muted" style={{ marginTop: '1rem' }}>
           <Link to="/">{t('landing.backHome')}</Link>

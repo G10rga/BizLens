@@ -5,6 +5,8 @@ from flask_jwt_extended import jwt_required
 
 from ..extensions import db
 from ..models import Business, FixedExpense, SupplierPayment
+from ..services.georgian_tax import recommend_regime, resolve_obligations, validate_profile
+from ..services.tax_accrual import rebuild_tax_reserves
 from ..validation import parse_money, validate_business_name, validate_due_day
 from .helpers import current_user
 
@@ -12,6 +14,21 @@ bp = Blueprint("onboarding", __name__, url_prefix="/api/onboarding")
 
 VALID_TYPES = {"bakery", "restaurant", "retail", "pharmacy", "salon", "other"}
 VALID_CITIES = {"Tbilisi", "Batumi", "Kutaisi", "Other"}
+
+ERROR_MESSAGES = {
+    "legal_form_required": "Select a legal form (IE or LLC)",
+    "tax_regime_required": "Select a tax status",
+    "vat_status_required": "Select whether you are a VAT payer",
+    "micro_forbids_employees": "Micro business status does not allow employees",
+    "micro_forbids_vat": "Micro business status cannot register for VAT",
+    "micro_ie_only": "Micro business status is only for individual entrepreneurs",
+    "small_ie_only": "Small business status is only for individual entrepreneurs",
+    "small_incompatible_with_vat": "VAT registration ends Small Business Status — choose general regime",
+    "vat_ends_special_status": "VAT registration is incompatible with micro/small status",
+    "llc_cannot_use_ie_status": "An LLC cannot use micro or small business status",
+    "ie_cannot_use_llc_regime": "Individual entrepreneurs use micro, small, or general — not LLC regime",
+    "llc_regime_forced": "LLC uses the Estonian profit-tax model",
+}
 
 
 @bp.post("/profile")
@@ -43,12 +60,90 @@ def save_profile():
     return jsonify(business.to_dict())
 
 
+def _apply_tax_profile(business: Business, ready: dict) -> None:
+    business.legal_form = ready["legal_form"]
+    business.tax_regime = ready["tax_regime"]
+    business.is_vat_payer = ready["is_vat_payer"]
+    business.has_employees = ready["has_employees"]
+    business.pension_participants = ready["pension_participants"]
+    business.llc_distributes_profit = ready["llc_distributes_profit"]
+    business.tax_profile_complete = True
+
+
+@bp.post("/tax-profile")
+@jwt_required()
+def save_tax_profile():
+    user = current_user()
+    if not user.business:
+        return jsonify({"error": "Create business profile first"}), 400
+    data = request.get_json(silent=True) or {}
+
+    # Optional recommendation path when user is unsure
+    if data.get("recommend") or (data.get("tax_regime") or "").strip().lower() in {
+        "unsure",
+        "",
+    }:
+        suggestion = recommend_regime(data)
+        data = {
+            **data,
+            "legal_form": data.get("legal_form") or suggestion["legal_form"],
+            "tax_regime": suggestion["tax_regime"],
+            "is_vat_payer": suggestion["is_vat_payer"]
+            if data.get("is_vat_payer") in (None, "", "unsure")
+            else data.get("is_vat_payer"),
+            "has_employees": data.get("has_employees", suggestion["has_employees"]),
+        }
+
+    ready, errors, warnings = validate_profile(data)
+    if errors:
+        msg = ERROR_MESSAGES.get(errors[0], errors[0])
+        return jsonify({"error": msg, "errors": errors, "warnings": warnings}), 400
+
+    _apply_tax_profile(user.business, ready)
+    rebuild_tax_reserves(user.business)
+    db.session.commit()
+
+    obligations = resolve_obligations(ready)
+    return jsonify(
+        {
+            "business": user.business.to_dict(),
+            "obligations": obligations,
+            "warnings": warnings
+            + (recommend_regime(data).get("warnings") if data.get("recommend") else []),
+        }
+    )
+
+
+@bp.post("/tax-recommend")
+@jwt_required()
+def tax_recommend():
+    """Return a recommended regime without saving (clarifying questions)."""
+    data = request.get_json(silent=True) or {}
+    suggestion = recommend_regime(data)
+    ready_preview = {
+        "legal_form": suggestion["legal_form"],
+        "tax_regime": suggestion["tax_regime"],
+        "is_vat_payer": suggestion["is_vat_payer"],
+        "has_employees": bool(data.get("has_employees", suggestion["has_employees"])),
+        "pension_participants": True,
+        "llc_distributes_profit": bool(data.get("llc_distributes_profit", False)),
+    }
+    return jsonify(
+        {
+            "suggestion": suggestion,
+            "obligations": resolve_obligations(ready_preview),
+        }
+    )
+
+
 @bp.post("/expenses")
 @jwt_required()
 def save_expenses():
     user = current_user()
     if not user.business:
         return jsonify({"error": "Create business profile first"}), 400
+    if not user.business.tax_profile_complete:
+        return jsonify({"error": "Complete tax profile first"}), 400
     data = request.get_json(silent=True) or {}
     items = data.get("expenses") or []
 
@@ -143,6 +238,8 @@ def status():
     business = user.business
     if not business:
         return jsonify({"step": "profile", "complete": False})
+    if not business.tax_profile_complete and not business.onboarding_complete:
+        return jsonify({"step": "tax", "complete": False, "business": business.to_dict()})
     has_expenses = FixedExpense.query.filter_by(business_id=business.id).count() > 0
     if not has_expenses and not business.onboarding_complete:
         return jsonify({"step": "expenses", "complete": False, "business": business.to_dict()})

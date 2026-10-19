@@ -11,6 +11,7 @@ from ..extensions import db
 from ..models import Alert, CsvImport, DailySale, ReceiptCapture, Sale, SaleItem
 from ..services.csv_parser import parse_sales_file
 from ..services.sales_agg import set_daily_revenue
+from ..services.tax_accrual import rebuild_tax_reserves
 from .helpers import require_business
 
 bp = Blueprint("csv_import", __name__, url_prefix="/api/csv")
@@ -183,6 +184,7 @@ def import_csv(business):
                 row["revenue"],
                 source="csv",
             )
+        rebuild_tax_reserves(business)
         msg_bits = []
         if warnings_prefix:
             msg_bits.append(warnings_prefix.strip("; "))
@@ -208,6 +210,8 @@ def import_csv(business):
                 "replaced": replace,
                 "warnings": warnings,
                 "file_saved": save_path is not None,
+                "tax_reserve": float(business.tax_reserve or 0),
+                "vat_reserve": float(business.vat_reserve or 0),
             }
         )
     except Exception as exc:  # noqa: BLE001
