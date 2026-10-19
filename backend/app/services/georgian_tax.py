@@ -29,6 +29,11 @@ LLC_DIVIDEND_RATE = 0.05  # withholding on dividend to individual
 # CIT on distribution is computed so 15 tax accompanies 85 dividend → effective
 # tax on pre-distribution cash ≈ 1 - 0.85*0.95 = 0.1925
 LLC_DISTRIBUTION_EFFECTIVE = 1.0 - (1.0 - LLC_CIT_RATE) * (1.0 - LLC_DIVIDEND_RATE)
+# When owner says they regularly take profits home, assume this share of *net*
+# sales is drawn as distributions (cash-planning proxy, not book profit).
+LLC_DRAW_SHARE_OF_NET = 0.50
+# General IE: assumed deductible-cost margin on net revenue
+GENERAL_PROFIT_MARGIN = 0.25
 
 PAYROLL_PIT_RATE = 0.20
 PENSION_EMPLOYEE_RATE = 0.02
@@ -396,11 +401,14 @@ def tax_on_income(
     ytd_turnover_before: float,
     profile: Dict[str, Any],
     *,
-    estimated_margin: float = 0.25,
+    estimated_margin: float | None = None,
 ) -> Dict[str, float]:
     """
     Accrual for one income event.
     Returns income_tax_accrual and vat_accrual (both >= 0).
+
+    LLC + “take profits home”: set aside ~19.25% on half of net sales (draw proxy).
+    Example on 100 ₾ VAT-inclusive: VAT ≈ 15.25; LLC ≈ 8.16; total ≈ 23.41.
     """
     amount = float(amount or 0)
     if amount <= 0:
@@ -426,12 +434,20 @@ def tax_on_income(
         else:
             income_tax = round(taxable_turnover * rate, 2)
     elif regime == "general":
-        # Approximate profit as margin * net revenue (expenses tracked separately in period estimate)
-        income_tax = round(taxable_turnover * max(0.0, min(estimated_margin, 1.0)) * GENERAL_PIT_RATE, 2)
+        margin = GENERAL_PROFIT_MARGIN if estimated_margin is None else estimated_margin
+        income_tax = round(
+            taxable_turnover * max(0.0, min(float(margin), 1.0)) * GENERAL_PIT_RATE, 2
+        )
     elif regime == "llc_estonian":
         if p["llc_distributes_profit"]:
+            # Regular draws: plan for tax on a large share of net, not a thin 25% margin.
+            draw_share = (
+                LLC_DRAW_SHARE_OF_NET if estimated_margin is None else float(estimated_margin)
+            )
             income_tax = round(
-                taxable_turnover * max(0.0, min(estimated_margin, 1.0)) * LLC_DISTRIBUTION_EFFECTIVE,
+                taxable_turnover
+                * max(0.0, min(draw_share, 1.0))
+                * LLC_DISTRIBUTION_EFFECTIVE,
                 2,
             )
         else:
@@ -511,8 +527,10 @@ def estimate_period(
         profit = max(0.0, net_income - expense_total)
         estimated_income_tax = round(profit * GENERAL_PIT_RATE, 2)
     elif regime == "llc_estonian" and p["llc_distributes_profit"]:
-        profit = max(0.0, net_income - expense_total)
-        estimated_income_tax = round(profit * LLC_DISTRIBUTION_EFFECTIVE, 2)
+        # Same planning proxy as per-sale accrual: tax on half of net turnover
+        estimated_income_tax = round(
+            net_income * LLC_DRAW_SHARE_OF_NET * LLC_DISTRIBUTION_EFFECTIVE, 2
+        )
 
     estimated_vat = _vat_from_inclusive(income_total) if is_vat else 0.0
 
