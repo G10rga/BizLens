@@ -428,7 +428,15 @@ export default {
     zoneDanger: 'Risk',
     expenseDrops: 'Bill days',
     outflowPressure: 'Largest upcoming outflows',
-    outflowPressureHint: 'Sized by amount so rent and salaries stand out from small supplier payments.',
+    outflowPressureHint:
+      'Tax remittances (blue) plus the largest bills. Sized by amount — rent and salaries stand out from small payments.',
+    taxItems: {
+      small_business_tax: 'Small business tax (1%)',
+      income_tax: 'Income tax',
+      llc_distribution_tax: 'LLC distribution tax',
+      vat: 'VAT',
+      employer_pension: 'Employer pension (2%)',
+    },
     sales: 'Sales',
     cash: 'Cash',
     worst: 'Worst',

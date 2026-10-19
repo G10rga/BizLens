@@ -564,6 +564,33 @@ def _prev_month(d: date) -> Tuple[int, int]:
     return d.year, d.month - 1
 
 
+def _day_revenue_map(
+    daily_rows: List[dict],
+    income_forecast: Optional[List[dict]] = None,
+) -> Dict[date, float]:
+    """
+    Prefer recorded daily sales; fall back to forecast yhat for future days
+    so tax remittances are projected beyond history (not silently zero).
+    """
+    by_day: Dict[date, float] = {}
+    for row in daily_rows or []:
+        d = date.fromisoformat(row["date"]) if isinstance(row["date"], str) else row["date"]
+        by_day[d] = float(row.get("revenue") or 0)
+    for row in income_forecast or []:
+        d = date.fromisoformat(row["date"]) if isinstance(row["date"], str) else row["date"]
+        if d not in by_day:
+            by_day[d] = float(row.get("yhat") or row.get("revenue") or 0)
+    return by_day
+
+
+def _sum_revenue_between(by_day: Dict[date, float], start: date, end: date) -> float:
+    total = 0.0
+    for d, amt in by_day.items():
+        if start <= d <= end:
+            total += float(amt or 0)
+    return round(total, 2)
+
+
 def expand_tax_payments(
     *,
     profile: Dict[str, Any],
@@ -571,15 +598,20 @@ def expand_tax_payments(
     expenses: List[dict],
     start: date,
     end: date,
+    income_forecast: Optional[List[dict]] = None,
 ) -> Dict[date, List[dict]]:
     """
     Map payment dates (15th) → estimated tax remittances for prior calendar month.
     Used by cash-flow projection like fixed expenses.
+
+    Prior-month turnover uses recorded sales when available, otherwise the sales
+    forecast — otherwise future tax due dates would wrongly stay at ₾0.
     """
     p = normalize_profile(profile)
-    if p["tax_regime"] not in TAX_REGIMES and p["legal_form"] not in LEGAL_FORMS:
+    if p.get("tax_regime") not in TAX_REGIMES:
         return {}
 
+    revenue_by_day = _day_revenue_map(daily_rows, income_forecast)
     by_day: Dict[date, List[dict]] = {}
 
     # Walk each month whose 15th falls in [start, end]
@@ -589,19 +621,13 @@ def expand_tax_payments(
         if start <= pay_day <= end:
             py, pm = _prev_month(pay_day)
             m_start, m_end = _month_bounds(py, pm)
-            month_income = 0.0
-            for row in daily_rows:
-                d = date.fromisoformat(row["date"]) if isinstance(row["date"], str) else row["date"]
-                if m_start <= d <= m_end:
-                    month_income += float(row.get("revenue") or 0)
+            month_income = _sum_revenue_between(revenue_by_day, m_start, m_end)
 
             # YTD before this month for small-business rate
-            ytd_before = 0.0
             year_start = date(py, 1, 1)
-            for row in daily_rows:
-                d = date.fromisoformat(row["date"]) if isinstance(row["date"], str) else row["date"]
-                if year_start <= d < m_start:
-                    ytd_before += float(row.get("revenue") or 0)
+            ytd_before = _sum_revenue_between(
+                revenue_by_day, year_start, m_start - timedelta(days=1)
+            ) if m_start > year_start else 0.0
 
             items: List[dict] = []
             accrual = tax_on_income(month_income, ytd_before, p)

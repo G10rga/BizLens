@@ -107,9 +107,17 @@ const holidayMarksPlugin = {
 ChartJS.register(forecastDividerPlugin, cashZonesPlugin, holidayMarksPlugin)
 
 function expenseLabel(name, t) {
-  const key = `onboarding.expenses.${String(name || '').toLowerCase()}`
+  const raw = String(name || '')
+  const taxKey = `dashboard.taxItems.${raw}`
+  const taxTranslated = t(taxKey)
+  if (taxTranslated !== taxKey) return taxTranslated
+  const key = `onboarding.expenses.${raw.toLowerCase()}`
   const translated = t(key)
   return translated === key ? name : translated
+}
+
+function markerHasTax(marker) {
+  return (marker?.items || []).some((i) => i.type === 'tax' || String(i.name || '').includes('tax') || i.name === 'vat' || i.name === 'employer_pension')
 }
 
 export default function Dashboard() {
@@ -304,9 +312,16 @@ export default function Dashboard() {
 
   const outflowBars = useMemo(() => {
     if (!data?.expense_markers?.length) return null
-    const top = [...data.expense_markers]
+    const markers = [...data.expense_markers]
+    // Always surface tax remittance days, then fill with largest other outflows
+    const taxDays = markers
+      .filter(markerHasTax)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)))
+    const other = markers
+      .filter((m) => !markerHasTax(m))
       .sort((a, b) => Number(b.amount) - Number(a.amount))
-      .slice(0, 8)
+    const top = [...taxDays, ...other].slice(0, 10)
+    if (!top.length) return null
     const maxAmt = Math.max(...top.map((m) => Number(m.amount) || 0), 1)
     return {
       labels: top.map((m) => {
@@ -315,6 +330,7 @@ export default function Dashboard() {
       }),
       amounts: top.map((m) => Number(m.amount) || 0),
       maxAmt,
+      isTax: top.map((m) => markerHasTax(m)),
       raw: top,
     }
   }, [data, t])
@@ -543,9 +559,13 @@ export default function Dashboard() {
                       {
                         label: t('dashboard.futureExpenses'),
                         data: outflowBars.amounts,
-                        backgroundColor: outflowBars.amounts.map(
-                          (a) => `rgba(185, 28, 28, ${0.35 + 0.55 * (a / outflowBars.maxAmt)})`,
-                        ),
+                        backgroundColor: outflowBars.amounts.map((a, i) => {
+                          const intensity = 0.35 + 0.55 * (a / outflowBars.maxAmt)
+                          if (outflowBars.isTax?.[i]) {
+                            return `rgba(37, 99, 235, ${intensity})`
+                          }
+                          return `rgba(185, 28, 28, ${intensity})`
+                        }),
                         borderRadius: 6,
                         borderSkipped: false,
                       },

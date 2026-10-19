@@ -57,6 +57,9 @@ def run_business_forecast(business, horizon_days=None):
             expenses=expenses,
             start=start_date,
             end=end_date,
+            # Future months have no DailySale rows — use forecast so tax due
+            # dates (15th) still hit the cash timeline.
+            income_forecast=forecast.get("income_forecast") or [],
         )
     # Incomplete Lens capture → wider forecast ranges on the dashboard cards
     widen = recent_capture_widen_factor(business, lookback_days=7)
