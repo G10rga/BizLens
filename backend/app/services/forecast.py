@@ -15,6 +15,11 @@ from .georgian_calendar import (
 )
 
 
+# Dense CSV-like history: gaps between first/last sale are treated as closed (0).
+# Sparse POS/Lens history: gaps are unregistered days — must NOT become zeros.
+DENSE_COVERAGE_THRESHOLD = 0.80
+
+
 def _prepare_history(daily_rows: List[dict]) -> pd.DataFrame:
     if not daily_rows:
         return pd.DataFrame(columns=["ds", "y"])
@@ -26,15 +31,70 @@ def _prepare_history(daily_rows: List[dict]) -> pd.DataFrame:
     return df[["ds", "y"]].reset_index(drop=True)
 
 
-def _fill_calendar(history: pd.DataFrame) -> pd.DataFrame:
-    """Insert missing calendar days as 0 so closed days don't inflate averages."""
-    if history.empty:
-        return history
-    idx = pd.date_range(history["ds"].min(), history["ds"].max(), freq="D")
-    filled = history.set_index("ds").reindex(idx)
-    filled["y"] = filled["y"].fillna(0.0)
+def _reindex_calendar(history: pd.DataFrame) -> pd.DataFrame:
+    """Full calendar between first and last sale; missing days have y=NaN, observed=False."""
+    if history is None or history.empty:
+        return pd.DataFrame(columns=["ds", "y", "observed"])
+    src = history[["ds", "y"]].copy()
+    idx = pd.date_range(src["ds"].min(), src["ds"].max(), freq="D")
+    filled = src.set_index("ds").reindex(idx)
+    filled["observed"] = filled["y"].notna()
     filled.index.name = "ds"
     return filled.reset_index()
+
+
+def _coverage_ratio(cal: pd.DataFrame) -> float:
+    if cal is None or cal.empty or "observed" not in cal.columns:
+        return 0.0
+    return float(cal["observed"].mean())
+
+
+def _gaps_likely_closed(history: pd.DataFrame) -> bool:
+    """
+    True when recent history is dense enough that calendar gaps are probably
+    real closed days (typical continuous CSV). False for sparse POS/Lens capture
+    where missing days mean "not registered", not "sold 0".
+    """
+    cal = _reindex_calendar(history)
+    if cal.empty:
+        return True
+    end = cal["ds"].max()
+    span = cal[cal["ds"] >= end - pd.Timedelta(days=89)]
+    if span.empty:
+        span = cal
+    return _coverage_ratio(span) >= DENSE_COVERAGE_THRESHOLD
+
+
+def _fill_calendar(history: pd.DataFrame, *, force_zeros: bool | None = None) -> pd.DataFrame:
+    """
+    Expand history onto a continuous calendar.
+
+    - Dense history: fill missing days with 0 (closed).
+    - Sparse history: leave missing as NaN and keep ``observed=False`` so callers
+      do not treat unregistered days as zero sales.
+    """
+    cal = _reindex_calendar(history)
+    if cal.empty:
+        return cal
+    use_zeros = _gaps_likely_closed(history) if force_zeros is None else bool(force_zeros)
+    out = cal.copy()
+    if use_zeros:
+        out["y"] = out["y"].fillna(0.0)
+        # After filling, every calendar day is "known" for closed-day logic
+        out["observed"] = True
+    return out
+
+
+def _is_sparse_frame(filled: pd.DataFrame) -> bool:
+    if filled is None or filled.empty or "observed" not in filled.columns:
+        return False
+    return _coverage_ratio(filled) < DENSE_COVERAGE_THRESHOLD
+
+
+def _observed_mask(df: pd.DataFrame) -> pd.Series:
+    if "observed" in df.columns:
+        return df["observed"].fillna(False).astype(bool)
+    return df["y"].notna()
 
 
 def _winsorize(series: pd.Series, upper_q: float = 0.9) -> pd.Series:
@@ -48,11 +108,15 @@ def _level_and_weekly(history: pd.DataFrame) -> Tuple[float, np.ndarray, float, 
     """
     Level uses ~90 days (3 months), not just the last 30.
     Last month can nudge the forecast but cannot dominate it.
+
+    Unregistered (missing) days are excluded from averages when history is sparse,
+    so gaps do not drag the forecast toward zero.
     """
     if history.empty:
         return 100.0, np.ones(7), 100.0, 0.0, np.ones(7)
 
     filled = _fill_calendar(history)
+    sparse = _is_sparse_frame(filled)
     end = filled["ds"].max()
     # Prefer up to ~3 months of history for the sales level
     span = filled[filled["ds"] >= end - pd.Timedelta(days=89)].copy()
@@ -72,13 +136,23 @@ def _level_and_weekly(history: pd.DataFrame) -> Tuple[float, np.ndarray, float, 
     def _avg(block: pd.DataFrame) -> float | None:
         if block.empty:
             return None
+        if sparse:
+            obs = block.loc[_observed_mask(block)]
+            if obs.empty:
+                return None
+            # Mean of registered days only (never divide by missing calendar slots)
+            return float(obs["y"].mean())
         return float(block["y"].sum() / len(block))
 
     m1 = _avg(last30)   # most recent ~month
     m2 = _avg(mid30)
     m3 = _avg(old30)
     months = [m for m in (m3, m2, m1) if m is not None]
-    raw_avg = float(span["y"].sum() / max(len(span), 1))
+    if sparse:
+        obs_span = span.loc[_observed_mask(span)]
+        raw_avg = float(obs_span["y"].mean()) if not obs_span.empty else 0.0
+    else:
+        raw_avg = float(span["y"].sum() / max(len(span), 1))
 
     # Multi-month blend: older months keep weight so one weak/strong month can't own the forecast
     if len(months) >= 3:
@@ -100,15 +174,22 @@ def _level_and_weekly(history: pd.DataFrame) -> Tuple[float, np.ndarray, float, 
     open_prob = np.ones(7)
     for dow in range(7):
         days = span[span["dow"] == dow]
-        if len(days):
+        if sparse:
+            days = days.loc[_observed_mask(days)]
+        if len(days) >= 2:
             open_prob[dow] = float((days["y"] > 0).mean())
+        elif len(days) == 1:
+            open_prob[dow] = 1.0 if float(days["y"].iloc[0]) > 0 else 0.05
         else:
-            open_prob[dow] = float((span["y"] > 0).mean()) if len(span) else 1.0
+            # No registered samples for this weekday → assume open (don't invent closures)
+            open_prob[dow] = 1.0 if sparse else float((span["y"] > 0).mean()) if len(span) else 1.0
     open_prob = np.clip(open_prob, 0.05, 1.0)
 
     sold = span[span["y"] > 0].copy()
     if sold.empty:
-        sold = span.copy()
+        sold = span.loc[_observed_mask(span)].copy() if sparse else span.copy()
+    if sold.empty:
+        return max(0.0, calendar_level), np.ones(7), raw_avg, 0.0, open_prob
     sold_y = _winsorize(sold["y"], 0.9)
     # Milder recency (half-life ~45d) so last month doesn't dominate open-day level
     ages = (sold["ds"].max() - sold["ds"]).dt.days.astype(float)
@@ -141,34 +222,61 @@ def _level_and_weekly(history: pd.DataFrame) -> Tuple[float, np.ndarray, float, 
 
 def _week_templates(filled: pd.DataFrame) -> list[np.ndarray]:
     """
-    Extract real Mon–Sun sales vectors from history (including closed days as 0).
-    Most recent weeks last in the list. Skips partial/edge weeks.
+    Extract real Mon–Sun sales vectors from history.
+
+    Dense history: closed days stay 0.
+    Sparse history: unregistered days are imputed from that weekday's typical
+    open-day sales — never forced to 0 — so forecast weeks don't replay gaps.
     """
     if filled is None or filled.empty:
         return []
     df = filled.copy().sort_values("ds")
-    first_sale = df.loc[df["y"] > 0, "ds"].min()
-    last_sale = df.loc[df["y"] > 0, "ds"].max()
+    positive = df["y"].notna() & (df["y"] > 0)
+    first_sale = df.loc[positive, "ds"].min()
+    last_sale = df.loc[positive, "ds"].max()
     if pd.isna(first_sale):
         return []
+    sparse = _is_sparse_frame(df)
     df["dow"] = df["ds"].dt.dayofweek
     df["week_start"] = df["ds"] - pd.to_timedelta(df["dow"], unit="D")
+
+    sold = df.loc[positive]
+    dow_typical = sold.groupby("dow")["y"].mean() if not sold.empty else pd.Series(dtype=float)
+    typical_fallback = float(dow_typical.mean()) if len(dow_typical) else 0.0
+
     templates: list[np.ndarray] = []
     for week_start, g in df.groupby("week_start", sort=True):
         ws = pd.Timestamp(week_start)
         we = ws + pd.Timedelta(days=6)
         # skip incomplete edge weeks
-        if ws < first_sale.normalize() - pd.Timedelta(days=first_sale.dayofweek):
+        if ws < first_sale.normalize() - pd.Timedelta(days=int(first_sale.dayofweek)):
             continue
-        if we > last_sale.normalize() + pd.Timedelta(days=(6 - last_sale.dayofweek)):
+        if we > last_sale.normalize() + pd.Timedelta(days=(6 - int(last_sale.dayofweek))):
             # allow last week if it contains the last sale
             if last_sale < ws or last_sale > we:
                 continue
-        by_dow = g.groupby("dow")["y"].sum()
-        vec = by_dow.reindex(range(7), fill_value=0.0).to_numpy(dtype=float)
-        open_days = int((vec > 0).sum())
-        if open_days >= 4 and float(vec.sum()) > 0:
-            templates.append(vec)
+
+        if sparse:
+            obs_count = int(_observed_mask(g).sum())
+            if obs_count < 4:
+                continue
+            vec = np.zeros(7, dtype=float)
+            for dow in range(7):
+                day = g[g["dow"] == dow]
+                if len(day) and bool(day["observed"].iloc[0]) and pd.notna(day["y"].iloc[0]):
+                    vec[dow] = float(day["y"].iloc[0])
+                else:
+                    # Unregistered — impute typical open-day sales for that weekday
+                    vec[dow] = float(dow_typical.get(dow, typical_fallback))
+            open_days = int((vec > 0).sum())
+            if open_days >= 4 and float(vec.sum()) > 0:
+                templates.append(vec)
+        else:
+            by_dow = g.groupby("dow")["y"].sum()
+            vec = by_dow.reindex(range(7), fill_value=0.0).to_numpy(dtype=float)
+            open_days = int((vec > 0).sum())
+            if open_days >= 4 and float(vec.sum()) > 0:
+                templates.append(vec)
     return templates[-16:]
 
 
@@ -180,8 +288,15 @@ def _dow_bands(filled: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
         return low, high
     df = filled.copy()
     df["dow"] = df["ds"].dt.dayofweek
+    sparse = _is_sparse_frame(df)
     for dow in range(7):
-        vals = df.loc[df["dow"] == dow, "y"].to_numpy(dtype=float)
+        subset = df[df["dow"] == dow]
+        if sparse:
+            subset = subset.loc[_observed_mask(subset)]
+            # Bands from open days only — zeros from missing capture must not pull low→0
+            vals = subset.loc[subset["y"] > 0, "y"].to_numpy(dtype=float)
+        else:
+            vals = subset["y"].dropna().to_numpy(dtype=float)
         if len(vals) == 0:
             continue
         low[dow] = float(np.percentile(vals, 20))
@@ -228,8 +343,14 @@ def _raw_forecast_from_params(
     if filled is not None and not filled.empty:
         tmp = filled.copy()
         tmp["dow"] = tmp["ds"].dt.dayofweek
+        sparse = _is_sparse_frame(tmp)
         for dow in range(7):
-            vals = tmp.loc[tmp["dow"] == dow, "y"].to_numpy(dtype=float)
+            subset = tmp[tmp["dow"] == dow]
+            if sparse:
+                subset = subset.loc[_observed_mask(subset)]
+                vals = subset.loc[subset["y"] > 0, "y"].to_numpy(dtype=float)
+            else:
+                vals = subset["y"].dropna().to_numpy(dtype=float)
             if len(vals) >= 4:
                 dow_resid_std[dow] = float(np.std(vals)) * 0.15
 
@@ -263,9 +384,9 @@ def _raw_forecast_from_params(
         out.append(
             {
                 "date": d.isoformat(),
-                "yhat": round(max(0.0, yhat), 2),
-                "yhat_lower": round(max(0.0, yhat_lower), 2),
-                "yhat_upper": round(max(0.0, yhat_upper), 2),
+                "yhat": round(float(max(0.0, yhat)), 2),
+                "yhat_lower": round(float(max(0.0, yhat_lower)), 2),
+                "yhat_upper": round(float(max(0.0, yhat_upper)), 2),
             }
         )
     return out
@@ -292,18 +413,29 @@ def _backtest_scale(
     """
     Train on all but last holdout_days, predict that window, return
     actual/predicted scale factor and metrics.
+
+    Scores only days that were actually registered in the holdout — unregistered
+    gaps are not treated as actual zero sales.
     """
     filled = _fill_calendar(history)
     if len(filled) < holdout_days + 45:
         return 1.0, {"enabled": False, "reason": "not_enough_history"}
 
     cutoff = filled["ds"].max() - pd.Timedelta(days=holdout_days)
-    train = filled[filled["ds"] <= cutoff][["ds", "y"]].copy()
+    keep_cols = ["ds", "y"] + (["observed"] if "observed" in filled.columns else [])
+    train = filled[filled["ds"] <= cutoff][keep_cols].copy()
     actual = filled[filled["ds"] > cutoff].copy()
     if train.empty or actual.empty:
         return 1.0, {"enabled": False, "reason": "empty_split"}
 
-    base, weekly, _, drift, open_prob = _level_and_weekly(train)
+    # Training history for level/templates: only observed points (drop NaN gaps)
+    train_hist = train.loc[_observed_mask(train), ["ds", "y"]].copy() if "observed" in train.columns else train[["ds", "y"]]
+    if train_hist.empty:
+        train_hist = train[["ds", "y"]].dropna()
+    if train_hist.empty:
+        return 1.0, {"enabled": False, "reason": "empty_train"}
+
+    base, weekly, _, drift, open_prob = _level_and_weekly(train_hist)
     start = (cutoff + pd.Timedelta(days=1)).date()
     predicted = _raw_forecast_from_params(
         base=base,
@@ -313,10 +445,17 @@ def _backtest_scale(
         horizon=len(actual),
         daily_drift=drift,
         open_prob=open_prob,
-        history=train,
+        history=train_hist,
     )
-    pred_sum = sum(p["yhat"] for p in predicted)
-    act_sum = float(actual["y"].sum())
+    pred_by_date = {p["date"]: p["yhat"] for p in predicted}
+    # Compare only on registered holdout days
+    scored = actual.loc[_observed_mask(actual)] if "observed" in actual.columns else actual.dropna(subset=["y"])
+    if scored.empty:
+        return 1.0, {"enabled": False, "reason": "no_observed_holdout"}
+    act_sum = float(scored["y"].sum())
+    pred_sum = float(
+        sum(pred_by_date.get(row["ds"].date().isoformat(), 0.0) for _, row in scored.iterrows())
+    )
     if pred_sum <= 1e-6:
         return 1.0, {"enabled": False, "reason": "zero_prediction"}
 
@@ -326,15 +465,15 @@ def _backtest_scale(
     soft = 1.0 + min(0.0, scale - 1.0) * 0.7
     return float(np.clip(soft, 0.85, 1.0)), {
         "enabled": True,
-        "holdout_days": int(len(actual)),
+        "holdout_days": int(len(scored)),
         "actual_sum": round(act_sum, 2),
         "predicted_sum": round(pred_sum, 2),
         "error_pct": round(err_pct, 2),
         "raw_scale": round(float(scale), 4),
         "scale_applied": round(float(np.clip(soft, 0.85, 1.0)), 4),
-        "holdout_start": actual["ds"].min().date().isoformat(),
-        "holdout_end": actual["ds"].max().date().isoformat(),
-        "note": "Backtest checks the last days already in your upload — not the future forecast cards. Upward calibration disabled.",
+        "holdout_start": scored["ds"].min().date().isoformat(),
+        "holdout_end": scored["ds"].max().date().isoformat(),
+        "note": "Backtest checks registered holdout days only (unregistered gaps ignored). Upward calibration disabled.",
     }
 
 
@@ -478,8 +617,16 @@ def backtest_forecast(
     actual = filled[filled["ds"] > cutoff]
     as_of = cutoff.date()
 
+    train_hist = (
+        train.loc[_observed_mask(train), ["ds", "y"]].copy()
+        if "observed" in train.columns
+        else train[["ds", "y"]].dropna()
+    )
+    if train_hist.empty:
+        return {"error": "No observed training days"}
+
     # Forecast WITHOUT nested holdout calibration (use raw params only)
-    base, weekly, raw_avg, drift, open_prob = _level_and_weekly(train)
+    base, weekly, raw_avg, drift, open_prob = _level_and_weekly(train_hist)
     pred = _raw_forecast_from_params(
         base=base,
         weekly=weekly,
@@ -488,32 +635,47 @@ def backtest_forecast(
         horizon=holdout_days,
         daily_drift=drift,
         open_prob=open_prob,
-        history=train,
-    )[: len(actual)]
+        history=train_hist,
+    )
 
     # Also show calibrated version (what the live model would do on train only)
     calibrated = forecast_sales(
         [
             {"date": row["ds"].date().isoformat(), "revenue": float(row["y"])}
-            for _, row in train.iterrows()
+            for _, row in train_hist.iterrows()
         ],
         business_type=business_type,
         horizon_days=holdout_days,
         as_of=as_of,
     )
-    pred_cal = calibrated["income_forecast"][: len(actual)]
+    pred_cal = calibrated["income_forecast"]
+    pred_by = {p["date"]: p["yhat"] for p in pred}
+    pred_cal_by = {p["date"]: p["yhat"] for p in pred_cal}
 
-    pred_sum = sum(p["yhat"] for p in pred)
-    pred_cal_sum = sum(p["yhat"] for p in pred_cal)
-    act_sum = float(actual["y"].sum())
-    mae = (
-        float(np.mean([abs(float(a) - float(p["yhat"])) for a, p in zip(actual["y"].tolist(), pred_cal)]))
-        if pred_cal
-        else 0.0
+    scored = (
+        actual.loc[_observed_mask(actual)].copy()
+        if "observed" in actual.columns
+        else actual.dropna(subset=["y"]).copy()
+    )
+    if scored.empty:
+        return {"error": "No observed holdout days"}
+
+    act_sum = float(scored["y"].sum())
+    pred_sum = float(sum(pred_by.get(r["ds"].date().isoformat(), 0.0) for _, r in scored.iterrows()))
+    pred_cal_sum = float(
+        sum(pred_cal_by.get(r["ds"].date().isoformat(), 0.0) for _, r in scored.iterrows())
+    )
+    mae = float(
+        np.mean(
+            [
+                abs(float(r["y"]) - float(pred_cal_by.get(r["ds"].date().isoformat(), 0.0)))
+                for _, r in scored.iterrows()
+            ]
+        )
     )
     return {
-        "holdout_days": int(len(actual)),
-        "train_days": int((train["y"] > 0).sum()),
+        "holdout_days": int(len(scored)),
+        "train_days": int((train_hist["y"] > 0).sum()),
         "train_calendar_days": int(len(train)),
         "actual_sum": round(act_sum, 2),
         "predicted_sum_raw": round(pred_sum, 2),
@@ -526,16 +688,16 @@ def backtest_forecast(
         "baseline_daily": round(base, 2),
         "recent_avg_raw": round(raw_avg, 2),
         "calibration_scale": calibrated.get("calibration_scale"),
-        "holdout_start": actual["ds"].min().date().isoformat(),
-        "holdout_end": actual["ds"].max().date().isoformat(),
+        "holdout_start": scored["ds"].min().date().isoformat(),
+        "holdout_end": scored["ds"].max().date().isoformat(),
         "daily": [
             {
                 "date": row["ds"].date().isoformat(),
                 "actual": round(float(row["y"]), 2),
-                "predicted_raw": pred[i]["yhat"] if i < len(pred) else None,
-                "predicted_calibrated": pred_cal[i]["yhat"] if i < len(pred_cal) else None,
+                "predicted_raw": pred_by.get(row["ds"].date().isoformat()),
+                "predicted_calibrated": pred_cal_by.get(row["ds"].date().isoformat()),
             }
-            for i, (_, row) in enumerate(actual.iterrows())
+            for _, row in scored.iterrows()
         ],
     }
 

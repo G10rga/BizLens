@@ -149,7 +149,7 @@ Pipeline:
 
    - Prefer **Facebook Prophet** when ≥ ~21 history days and Prophet is installed (20s timeout).  
    - Otherwise (or on timeout/error): **seasonal baseline** — multi-month level, weekday open probability, real week-shape templates from history, soft Georgian seasonality.  
-   - Fills missing calendar days as 0 so closed days do not inflate averages.  
+   - Dense history (e.g. continuous CSV): missing calendar days count as closed (0). Sparse POS/Lens gaps are **unregistered**, not zero — they are excluded from averages and not replayed as 0 in the forecast.  
    - Winsorizes outliers; blends ~90 days so one hot/cold month cannot dominate.  
    - Optional backtest on the last 30 days is **diagnostic** (does not invent upward future calibration).
 
