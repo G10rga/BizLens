@@ -23,6 +23,7 @@ from ..services.georgian_tax import (
 )
 from ..services.lens_completeness import completeness_report, recent_capture_widen_factor
 from ..services.sales_agg import daily_rows_for_business
+from ..services.tax_accrual import rebuild_tax_reserves
 from .helpers import require_business
 
 bp = Blueprint("forecast", __name__, url_prefix="/api/forecast")
@@ -111,6 +112,13 @@ def regenerate_alerts(business):
 def dashboard(business):
     chart_horizon = request.args.get("horizon", type=int) or Config.FORECAST_HORIZON_DAYS
     chart_horizon = max(7, min(chart_horizon, 180))
+    # Keep tax reserve aligned with cash baseline (self-heal after CSV / profile changes)
+    if getattr(business, "tax_profile_complete", False):
+        before = (float(business.tax_reserve or 0), float(business.vat_reserve or 0))
+        rebuild_tax_reserves(business)
+        after = (float(business.tax_reserve or 0), float(business.vat_reserve or 0))
+        if after != before:
+            db.session.commit()
     # Always compute 90 days so 30/60/90 sales cards stay correct
     forecast, cashflow, as_of = run_business_forecast(business, horizon_days=90)
     timeline = cashflow["timeline"]

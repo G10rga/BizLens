@@ -40,7 +40,14 @@ def accrue_income_tax(business, amount: float, sale_date: date | None = None) ->
 
 
 def rebuild_tax_reserves(business) -> dict:
-    """Recompute tax_reserve and vat_reserve from all DailySale history."""
+    """
+    Recompute tax_reserve / vat_reserve from DailySale history.
+
+    Only income on/after ``cash_baseline_date`` is set aside. Older CSV/history
+    days still count toward turnover *rates* (e.g. small-business 1% vs 3%),
+    but do not inflate the reserve when cash on hand was set independently —
+    otherwise available cash = 0 − huge historical tax looks nonsensically negative.
+    """
     if not getattr(business, "tax_profile_complete", False):
         business.tax_reserve = 0.0
         business.vat_reserve = 0.0
@@ -48,6 +55,10 @@ def rebuild_tax_reserves(business) -> dict:
 
     profile = profile_from_business(business)
     rows = daily_rows_for_business(business.id)
+    baseline = getattr(business, "cash_baseline_date", None) or date.today()
+    if isinstance(baseline, str):
+        baseline = date.fromisoformat(baseline)
+
     tax_total = 0.0
     vat_total = 0.0
     ytd_by_year: dict[int, float] = {}
@@ -57,9 +68,10 @@ def rebuild_tax_reserves(business) -> dict:
         amount = float(row["revenue"] or 0)
         ytd_before = ytd_by_year.get(d.year, 0.0)
         result = tax_on_income(amount, ytd_before, profile)
-        tax_total += result["income_tax_accrual"]
-        vat_total += result["vat_accrual"]
         ytd_by_year[d.year] = ytd_before + result["taxable_turnover"]
+        if d >= baseline:
+            tax_total += result["income_tax_accrual"]
+            vat_total += result["vat_accrual"]
 
     business.tax_reserve = round(tax_total, 2)
     business.vat_reserve = round(vat_total, 2)
